@@ -446,7 +446,6 @@ const _DB = {
   }
 };
 
-async function _dbUpsertPlayer(p) { _DB.upsertPlayer(p).catch(console.error); }
 
 async function _loadFromDB() {
   _showSync(true);
@@ -579,9 +578,11 @@ async function _loadFromDB() {
               const metrics = extractMetrics(row);
               if(metricsEmpty(metrics)) continue;
               const pid = getPlayerIdFromName(name);
-              const p = ensurePlayer(name, teamLabel);
-              const email = _extractEmail(row);
-              if(email && !p.email){ p.email=email; _dbUpsertPlayer(p); }
+              if(!DATA.players[pid]) DATA.players[pid]={id:pid,name,team:teamLabel,email:null,code:null,codeExpiresAt:null,tests:[],star:{}};
+              const p=DATA.players[pid];
+              p.team=teamLabel;
+              const email=_extractEmail(row);
+              if(email && !p.email) p.email=email;
               addTestEntry({team:teamLabel,season:meta.season,type:meta.type,playerId:pid,playerName:name,...metrics});
             }
             return;
@@ -604,8 +605,14 @@ async function _loadFromDB() {
           segs.sort((a,b)=>a.headerRow-b.headerRow);
           segs.forEach((seg,i)=>parseSegment(sheet,teamLabel,seg,segs[i+1]?segs[i+1].headerRow-1:range.e.r));
         });
+        // Bulk sync all new players and tests to Supabase
+        Object.values(DATA.players).forEach(p => _DB.upsertPlayer(p).catch(console.error));
+        Object.values(DATA.players).forEach(p =>
+          p.tests.forEach(t => { if(!t.dbId) _DB.upsertTest(t).catch(console.error); })
+        );
         refreshAllViews();
         _renderPlayerList();
+        _refreshManualPlayerSel();
         alert(`Excel-Datei für ${teamLabel} geladen.`);
       } catch(err){ console.error(err); alert("Fehler beim Laden: "+err.message); }
     };
@@ -1798,18 +1805,14 @@ async function _loadFromDB() {
   
 
 /* ══════════════════════════════════════
-   SUPABASE SYNC PATCHES
+   SUPABASE SYNC HELPERS
+   (No monkey-patching — call DB explicitly)
 ══════════════════════════════════════ */
-const _origEnsurePlayer=ensurePlayer;
-function ensurePlayer(name,team){
-  const p=_origEnsurePlayer(name,team);
-  _DB.upsertPlayer(p).catch(console.error);
-  return p;
-}
-const _origAddTest=addTestEntry;
-function addTestEntry(entry){
-  _origAddTest(entry);
-  _DB.upsertTest(entry).catch(console.error);
+async function _savePlayerAndTest(entry, player) {
+  try {
+    await _DB.upsertPlayer(player);
+    await _DB.upsertTest(entry);
+  } catch(e) { console.error('_savePlayerAndTest:', e); }
 }
 
 /* ══════════════════════════════════════
@@ -2023,40 +2026,59 @@ function _refreshManualPlayerSel(){
 /* ══════════════════════════════════════
    ADD PLAYER
 ══════════════════════════════════════ */
-document.getElementById('addPlayerBtn').addEventListener('click',async()=>{
-  const name=document.getElementById('newPlayerName').value.trim();
-  const email=document.getElementById('newPlayerEmail').value.trim()||null;
-  const team=document.getElementById('newPlayerTeam').value;
-  if(!name){ alert('Bitte Name eingeben.'); return; }
-  const p=ensurePlayer(name,team); // ensurePlayer now also calls _DB.upsertPlayer
-  if(email){ p.email=email; await _DB.upsertPlayer(p); }
-  document.getElementById('newPlayerName').value='';
-  document.getElementById('newPlayerEmail').value='';
-  refreshAllViews(); _renderPlayerList(); _refreshManualPlayerSel();
-  alert(`${name} hinzugefügt.`);
+document.getElementById('addPlayerBtn').addEventListener('click', async () => {
+  const name = document.getElementById('newPlayerName').value.trim();
+  const email = document.getElementById('newPlayerEmail').value.trim() || null;
+  const team = document.getElementById('newPlayerTeam').value;
+  if (!name) { alert('Bitte Name eingeben.'); return; }
+  const id = getPlayerIdFromName(name);
+  // Add to local DATA
+  if (!DATA.players[id]) {
+    DATA.players[id] = {id, name, team, email, code:null, codeExpiresAt:null, tests:[], star:{}};
+  } else {
+    DATA.players[id].team = team;
+    if (email) DATA.players[id].email = email;
+  }
+  // Save to Supabase
+  try {
+    await _DB.upsertPlayer(DATA.players[id]);
+    document.getElementById('newPlayerName').value = '';
+    document.getElementById('newPlayerEmail').value = '';
+    refreshAllViews();
+    _renderPlayerList();
+    _refreshManualPlayerSel();
+    alert(name + ' hinzugefügt.');
+  } catch(e) {
+    console.error('addPlayer:', e);
+    alert('Fehler beim Speichern: ' + e.message);
+  }
 });
 
 /* ══════════════════════════════════════
    ADD TEST RESULT (uses player selector)
 ══════════════════════════════════════ */
-document.getElementById('manualAddBtn').addEventListener('click',()=>{
-  const pid=document.getElementById('manualPlayerSel').value;
-  if(!pid){ alert('Bitte Spieler auswählen.'); return; }
-  const p=DATA.players[pid];
-  if(!p){ alert('Spieler nicht gefunden.'); return; }
-  const season=document.getElementById('manualSeason').value;
-  const type=document.getElementById('manualType').value;
-  const g=id=>document.getElementById(id).value;
-  const n=v=>v?Number(v):null;
-  addTestEntry({
+document.getElementById('manualAddBtn').addEventListener('click', async () => {
+  const pid = document.getElementById('manualPlayerSel').value;
+  if (!pid) { alert('Bitte Spieler auswählen.'); return; }
+  const p = DATA.players[pid];
+  if (!p) { alert('Spieler nicht gefunden.'); return; }
+  const season = document.getElementById('manualSeason').value;
+  const type = document.getElementById('manualType').value;
+  const g = id => document.getElementById(id).value;
+  const n = v => v ? Number(v) : null;
+  const entry = {
     team:p.team, season, type, playerId:pid, playerName:p.name,
     groesse:n(g('manualGroesse')), gewicht:n(g('manualGewicht')),
     yoYo:n(g('manualYoYo')), core:n(g('manualCore')),
     pushups:n(g('manualPushups')), pullups:n(g('manualPullups')), hupf:n(g('manualHupf'))
-  });
-  // clear test fields
+  };
+  // Save locally
+  addTestEntry(entry);
+  // Save to Supabase
+  _DB.upsertTest(entry).catch(console.error);
+  // Clear fields
   ['manualGroesse','manualGewicht','manualYoYo','manualCore','manualPushups','manualPullups','manualHupf']
-    .forEach(id=>document.getElementById(id).value='');
+    .forEach(id => document.getElementById(id).value = '');
   refreshAllViews();
   alert('Testresultat gespeichert.');
 });
