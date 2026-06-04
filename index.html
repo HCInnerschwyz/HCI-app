@@ -16,6 +16,7 @@
   <meta name="theme-color" content="#0a1628" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     /* ===== RESET & TOKENS ===== */
@@ -263,6 +264,7 @@
         <h1>Hockey Innerschwyz</h1>
         <span>U18 &amp; U21 – Physische Tests &amp; STAR Profil</span>
       </div>
+      <button onclick="syncFromCloud()" title="Daten synchronisieren" style="background:none;border:none;color:#8ab4cc;font-size:1.1rem;cursor:pointer;padding:4px 8px;border-radius:6px" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#8ab4cc'">🔄</button>
       <div id="modeBadge" class="mode-badge">
         <span class="mode-dot"></span>
         <span id="modeLabel">Spieleransicht</span>
@@ -510,7 +512,290 @@
   </div>
 
   <script>
-  
+  /* ===== SUPABASE SETUP ===== */
+  const _SB = supabase.createClient("https://dzfuzilcaujvbauzmzyi.supabase.co", "sb_publishable_DmQH8fC3R628qAkzeKDVkA_sv2p_Nkj");
+
+  /* ===== LOADING INDICATOR ===== */
+  function showLoadingBanner(on) {
+    let el = document.getElementById('sb-loading');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'sb-loading';
+      el.style.cssText = 'position:fixed;bottom:16px;right:16px;background:#0a1628;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;font-family:Barlow,sans-serif;z-index:9999;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,.3)';
+      el.innerHTML = '<span id="sb-dot" style="width:10px;height:10px;border-radius:50%;background:#e8621a;flex-shrink:0"></span><span id="sb-msg">Verbinde…</span>';
+      document.body.appendChild(el);
+      const s = document.createElement('style');
+      s.textContent = '@keyframes sbpulse{0%,100%{opacity:1}50%{opacity:.3}}';
+      document.head.appendChild(s);
+    }
+    el.style.display = on ? 'flex' : 'none';
+    if (on) document.getElementById('sb-dot').style.animation = 'sbpulse 1s infinite';
+    else document.getElementById('sb-dot').style.animation = '';
+  }
+
+  /* ===== SUPABASE DB LAYER ===== */
+  const DB = {
+    async upsertPlayer(p) {
+      const { error } = await _SB.from('players').upsert({
+        id: p.id, name: p.name, team: p.team || 'U18',
+        code: p.code || null,
+        code_expires_at: p.codeExpiresAt || null
+      }, { onConflict: 'id' });
+      if (error) console.error('upsertPlayer:', error);
+    },
+    async deletePlayer(id) {
+      await _SB.from('players').delete().eq('id', id);
+      await _SB.from('tests').delete().eq('player_id', id);
+      await _SB.from('star_profiles').delete().eq('player_id', id);
+    },
+    async upsertTest(t) {
+      const row = {
+        player_id: t.playerId, player_name: t.playerName,
+        team: t.team, season: t.season, type: t.type,
+        groesse: t.groesse ?? null, gewicht: t.gewicht ?? null,
+        yo_yo: t.yoYo ?? null, core: t.core ?? null,
+        pushups: t.pushups ?? null, pullups: t.pullups ?? null,
+        hupf: t.hupf ?? null
+      };
+      if (t.dbId) row.id = t.dbId;
+      const { data, error } = await _SB.from('tests').upsert(row, { onConflict: 'id' }).select();
+      if (error) console.error('upsertTest:', error);
+      if (data && data[0] && !t.dbId) t.dbId = data[0].id;
+    },
+    async saveStarProfile(playerId, profileDate, data, savedBy) {
+      const { data: existing } = await _SB.from('star_profiles')
+        .select('version').eq('player_id', playerId).eq('profile_date', profileDate)
+        .order('version', { ascending: false }).limit(1);
+      const version = (existing && existing.length) ? existing[0].version + 1 : 1;
+      const { error } = await _SB.from('star_profiles').insert({
+        player_id: playerId, profile_date: profileDate,
+        data, saved_by: savedBy || 'web', version,
+        saved_at: new Date().toISOString()
+      });
+      if (error) console.error('saveStarProfile:', error);
+      return version;
+    },
+    async loadLatestStarProfile(playerId, profileDate) {
+      const { data } = await _SB.from('star_profiles')
+        .select('*').eq('player_id', playerId).eq('profile_date', profileDate)
+        .order('version', { ascending: false }).limit(1);
+      return (data && data.length) ? data[0] : null;
+    }
+  };
+
+  /* ===== LOAD ALL DATA FROM SUPABASE ===== */
+  async function loadAllFromSupabase() {
+    showLoadingBanner(true);
+    try {
+      const [{ data: players }, { data: tests }] = await Promise.all([
+        _SB.from('players').select('*'),
+        _SB.from('tests').select('*').order('created_at', { ascending: true })
+      ]);
+
+      DATA.players = {};
+      (players || []).forEach(p => {
+        DATA.players[p.id] = {
+          id: p.id, name: p.name, team: p.team,
+          code: p.code, codeExpiresAt: p.code_expires_at,
+          tests: [], star: {}
+        };
+      });
+      (tests || []).forEach(t => {
+        const p = DATA.players[t.player_id];
+        if (!p) return;
+        p.tests.push({
+          dbId: t.id, playerId: t.player_id, playerName: t.player_name,
+          team: t.team, season: t.season, type: t.type,
+          groesse: t.groesse, gewicht: t.gewicht, yoYo: t.yo_yo,
+          core: t.core, pushups: t.pushups, pullups: t.pullups, hupf: t.hupf
+        });
+      });
+
+      // Rebuild local codes store so player-login still works
+      const codes = {};
+      (players || []).forEach(p => {
+        if (p.code) codes[p.id] = { code: p.code, createdAt: p.created_at, expiresAt: p.code_expires_at };
+      });
+      localStorage.setItem('hci_player_codes', JSON.stringify(codes));
+
+      refreshAllViews();
+    } catch(e) {
+      console.error('loadAllFromSupabase error:', e);
+    } finally {
+      showLoadingBanner(false);
+    }
+  }
+
+
+
+  /* ================================================
+     SUPABASE SYNC LAYER
+     All data is stored in the cloud and synced
+     across all devices in real time.
+     ================================================ */
+  const SB_URL = "https://dzfuzilcaujvbauzmzyi.supabase.co";
+  const SB_KEY = "sb_publishable_DmQH8fC3R628qAkzeKDVkA_sv2p_Nkj";
+
+  async function sbFetch(path, options={})) {
+    const url = SB_URL + "/rest/v1/" + path;
+    const headers = {
+      "apikey": SB_KEY,
+      "Authorization": "Bearer " + SB_KEY,
+      "Content-Type": "application/json",
+      "Prefer": options.prefer || "return=representation",
+      ...( options.headers || {})
+    };
+    const res = await fetch(url, { ...options, headers });
+    if(!res.ok) {
+      const err = await res.text();
+      console.error("Supabase error:", res.status, err);
+      return null;
+    }
+    const text = await res.text();
+    return text ? JSON.parse(text) : [];
+  }
+
+  /* ---- PLAYERS ---- */
+  async function dbUpsertPlayer(player) {
+    await sbFetch("players?on_conflict=id", {
+      method: "POST",
+      prefer: "resolution=merge-duplicates,return=representation",
+      body: JSON.stringify({
+        id: player.id,
+        name: player.name,
+        team: player.team || "U18",
+        code: player.code || null,
+        code_expires_at: player.codeExpiresAt || null
+      })
+    });
+  }
+
+  async function dbLoadAllPlayers() {
+    return await sbFetch("players?select=*&order=name") || [];
+  }
+
+  async function dbDeletePlayer(playerId) {
+    await sbFetch("players?id=eq." + encodeURIComponent(playerId), { method: "DELETE" });
+  }
+
+  /* ---- TESTS ---- */
+  async function dbUpsertTest(entry) {
+    await sbFetch("tests", {
+      method: "POST",
+      prefer: "return=representation",
+      body: JSON.stringify({
+        player_id: entry.playerId,
+        player_name: entry.playerName,
+        team: entry.team,
+        season: entry.season,
+        type: entry.type,
+        groesse: entry.groesse || null,
+        gewicht: entry.gewicht || null,
+        yo_yo: entry.yoYo || null,
+        core: entry.core || null,
+        pushups: entry.pushups || null,
+        pullups: entry.pullups || null,
+        hupf: entry.hupf || null
+      })
+    });
+  }
+
+  async function dbLoadTests(playerId) {
+    const path = playerId
+      ? "tests?player_id=eq." + encodeURIComponent(playerId) + "&select=*&order=created_at"
+      : "tests?select=*&order=player_name,season,type";
+    return await sbFetch(path) || [];
+  }
+
+  /* ---- STAR PROFILES ---- */
+  async function dbSaveStarProfile(playerId, profileDate, data, savedBy) {
+    // Get latest version
+    const existing = await sbFetch(
+      "star_profiles?player_id=eq." + encodeURIComponent(playerId) +
+      "&profile_date=eq." + encodeURIComponent(profileDate) +
+      "&select=version&order=version.desc&limit=1"
+    ) || [];
+    const version = existing.length ? existing[0].version + 1 : 1;
+    await sbFetch("star_profiles", {
+      method: "POST",
+      body: JSON.stringify({
+        player_id: playerId,
+        profile_date: profileDate,
+        data: data,
+        saved_by: savedBy || "web",
+        version: version
+      })
+    });
+    return version;
+  }
+
+  async function dbLoadStarProfile(playerId, profileDate) {
+    const rows = await sbFetch(
+      "star_profiles?player_id=eq." + encodeURIComponent(playerId) +
+      "&profile_date=eq." + encodeURIComponent(profileDate) +
+      "&select=*&order=version.desc&limit=1"
+    ) || [];
+    return rows.length ? rows[0] : null;
+  }
+
+  /* ---- SYNC: load all cloud data into DATA object ---- */
+  async function syncFromCloud() {
+    showSyncStatus("⏳ Lade Daten...");
+    try {
+      // Load players
+      const players = await dbLoadAllPlayers();
+      players.forEach(p => {
+        const pid = p.id;
+        if(!DATA.players[pid]) DATA.players[pid] = { id:pid, name:p.name, team:p.team||"U18", tests:[], star:{} };
+        else { DATA.players[pid].name = p.name; DATA.players[pid].team = p.team||"U18"; }
+        DATA.players[pid].code = p.code;
+        DATA.players[pid].codeExpiresAt = p.code_expires_at;
+      });
+
+      // Load all tests
+      const tests = await dbLoadTests();
+      // Reset tests on all players to avoid duplicates
+      Object.values(DATA.players).forEach(p => p.tests = []);
+      tests.forEach(t => {
+        const pid = t.player_id;
+        if(!DATA.players[pid]) return;
+        DATA.players[pid].tests.push({
+          playerId: pid,
+          playerName: t.player_name,
+          team: t.team,
+          season: t.season,
+          type: t.type,
+          groesse: t.groesse,
+          gewicht: t.gewicht,
+          yoYo: t.yo_yo,
+          core: t.core,
+          pushups: t.pushups,
+          pullups: t.pullups,
+          hupf: t.hupf,
+          dbId: t.id
+        });
+      });
+
+      showSyncStatus("✅ Synkronoitu", 2000);
+      refreshAllViews();
+    } catch(e) {
+      showSyncStatus("⚠️ Sync-Fehler: " + e.message, 4000);
+    }
+  }
+
+  function showSyncStatus(msg, autohideMs) {
+    let el = document.getElementById("syncStatus");
+    if(!el) {
+      el = document.createElement("div");
+      el.id = "syncStatus";
+      el.style.cssText = "position:fixed;bottom:16px;right:16px;background:var(--navy);color:#fff;padding:8px 14px;border-radius:8px;font-size:.8rem;font-family:Barlow,sans-serif;z-index:9999;transition:opacity .3s;box-shadow:0 4px 12px rgba(0,0,0,.3)";
+      document.body.appendChild(el);
+    }
+    el.style.opacity = "1";
+    el.textContent = msg;
+    if(autohideMs) setTimeout(() => { el.style.opacity = "0"; }, autohideMs);
+  }
+
   /* ---------------------------
      Core DATA + helpers
      --------------------------- */
@@ -521,6 +806,8 @@
     const id = getPlayerIdFromName(name);
     if(!DATA.players[id]) DATA.players[id] = { id, name, team: team || "U18", tests: [], star: {} };
     else if(team) DATA.players[id].team = team;
+    // Sync player to cloud
+    dbUpsertPlayer(DATA.players[id]).catch(console.error);
     return DATA.players[id];
   }
 
@@ -776,6 +1063,9 @@
   function addTestEntry(entry){
     const player = ensurePlayer(entry.playerName, entry.team);
     player.tests.push(entry);
+    // Sync to cloud
+    dbUpsertPlayer(player).catch(console.error);
+    dbUpsertTest(entry).catch(console.error);
   }
 
   /* ---------------------------
@@ -1108,9 +1398,16 @@
       localStorage.setItem(storageKey, JSON.stringify(payload));
       index[playerId].push({ profileDate, version, storageKey, savedAt });
       localStorage.setItem(INDEX_KEY, JSON.stringify(index));
+      // Sync to cloud
+      dbSaveStarProfile(playerId, profileDate, profileObj, savedBy).catch(console.error);
       return { storageKey, version, savedAt };
     }
 
+    async function loadLatestProfileFromCloud(playerId, profileDate){
+      const row = await dbLoadStarProfile(playerId, profileDate);
+      if(!row) return null;
+      return { meta:{ playerId, profileDate, version:row.version, savedAt:row.saved_at, savedBy:row.saved_by }, data: row.data };
+    }
     function loadLatestProfile(playerId, profileDate){
       const index = JSON.parse(localStorage.getItem(INDEX_KEY) || "{}");
       const list = (index[playerId] || []).filter(i=>i.profileDate===profileDate);
@@ -1182,12 +1479,16 @@
       }
     }
 
-    function loadProfileToUI(playerId, profileDate){
-      const payload = loadLatestProfile(playerId, profileDate);
+    async function loadProfileToUI(playerId, profileDate){
       const form = qs("#starProfileForm");
       if(!form) return;
+      // Try cloud first, fall back to localStorage
+      try {
+        const cloudPayload = await loadLatestProfileFromCloud(playerId, profileDate);
+        if(cloudPayload) { populateForm(form, cloudPayload); return; }
+      } catch(e) {}
+      const payload = loadLatestProfile(playerId, profileDate);
       if(payload) populateForm(form, payload);
-      console.info(`Ladattu STAR‑profiili ${playerId} ${profileDate} ${payload ? 'v'+payload.meta.version : '(ei löytynyt)'}`);
     }
 
     /* Export player profile JSON (for sharing) */
@@ -1380,12 +1681,18 @@
       }
       codes[playerId] = { code, createdAt: now, expiresAt };
       saveCodes(codes);
+      // Sync code to cloud player record
+      const player = DATA.players[playerId];
+      if(player) dbUpsertPlayer({...player, code, codeExpiresAt: expiresAt}).catch(console.error);
       return codes[playerId];
     }
     function removeCodeForPlayer(playerId){
       const codes = loadCodes();
       delete codes[playerId];
       saveCodes(codes);
+      // Remove code from cloud
+      const player = DATA.players[playerId];
+      if(player) dbUpsertPlayer({...player, code:null, codeExpiresAt:null}).catch(console.error);
     }
     function findPlayerByCode(inputCode){
       const codes = loadCodes();
@@ -1822,6 +2129,8 @@
     // initial
     updateModeUI();
     refreshAllViews();
+    // Load all data from cloud
+    syncFromCloud();
   });
   
 
@@ -1838,7 +2147,81 @@
       });
     });
   });
-  </script>
+  
+
+  /* ===== SUPABASE PATCHES ===== */
+
+  // Patch addTestEntry → also save to DB
+  const _origAddTest = addTestEntry;
+  function addTestEntry(entry) {
+    _origAddTest(entry);
+    DB.upsertTest(entry).catch(e => console.error('DB test:', e));
+  }
+
+  // Patch ensurePlayer → also save to DB
+  const _origEnsurePlayer = ensurePlayer;
+  function ensurePlayer(name, team) {
+    const p = _origEnsurePlayer(name, team);
+    DB.upsertPlayer(p).catch(e => console.error('DB player:', e));
+    return p;
+  }
+
+  // Patch removePlayer in coach code manager → also delete from DB
+  const _origRemoveCode = window.HCIPlayerCodes && window.HCIPlayerCodes.removeCodeForPlayer;
+
+  // Sync code changes to DB
+  async function syncCodeToDB(playerId) {
+    const codes = JSON.parse(localStorage.getItem('hci_player_codes') || '{}');
+    const rec = codes[playerId];
+    const p = DATA.players[playerId];
+    if (!p) return;
+    p.code = rec ? rec.code : null;
+    p.codeExpiresAt = rec ? rec.expiresAt : null;
+    await DB.upsertPlayer(p);
+  }
+
+  // Patch STAR save → also save to DB
+  document.addEventListener('DOMContentLoaded', () => {
+    // Load from Supabase on start
+    loadAllFromSupabase();
+
+    // Intercept STAR form submit to sync to DB
+    document.addEventListener('submit', async (ev) => {
+      if (!ev.target || ev.target.id !== 'starProfileForm') return;
+      const pid = document.getElementById('playerId')?.value;
+      const date = document.getElementById('profileDate')?.value;
+      if (!pid || !date) return;
+      setTimeout(async () => {
+        // collect saved data from localStorage and push to DB
+        const INDEX_KEY = 'star_profiles_index';
+        const index = JSON.parse(localStorage.getItem(INDEX_KEY) || '{}');
+        const list = (index[pid] || []).filter(i => i.profileDate === date);
+        if (!list.length) return;
+        list.sort((a,b) => b.version - a.version);
+        const raw = localStorage.getItem(list[0].storageKey);
+        if (!raw) return;
+        const payload = JSON.parse(raw);
+        await DB.saveStarProfile(pid, date, payload.data, 'web');
+      }, 300);
+    }, true);
+
+    // Intercept code assignment to sync to DB
+    document.addEventListener('click', async (ev) => {
+      const btn = ev.target.closest('[data-action]');
+      if (!btn) return;
+      const action = btn.getAttribute('data-action');
+      const pid = btn.getAttribute('data-player');
+      if (!pid) return;
+      if (action === 'create' || action === 'remove') {
+        setTimeout(() => syncCodeToDB(pid).catch(console.error), 400);
+      }
+      if (action === 'remove' && confirm) {
+        // also delete player tests from DB if player removed
+        // (handled separately in removePlayer)
+      }
+    });
+  });
+</script>
 
   <script>
   if("serviceWorker" in navigator){
