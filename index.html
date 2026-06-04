@@ -402,6 +402,10 @@
       </div>
 
       <div id="coachArea" class="hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:.1em;color:var(--navy)">🔓 Traineransicht aktiv</span>
+          <button class="btn-small btn-secondary" onclick="window.setCoachMode(false);refreshAllViews();">Abmelden</button>
+        </div>
         <div class="card">
           <h2><span class="icon">📤</span> Excel-Upload</h2>
           <div class="flex-row">
@@ -1942,7 +1946,14 @@
         setCoachMode(true);
         startModal.style.display = "none";
         refreshAllViews();
-      } else alert("Falscher PIN-Code.");
+      } else {
+        alert("Falscher PIN-Code.");
+        document.getElementById("startCoachPin").value = "";
+        document.getElementById("startCoachPin").focus();
+      }
+    });
+    document.getElementById("startCoachPin").addEventListener("keydown", (e)=>{
+      if(e.key === "Enter") document.getElementById("startCoachBtn").click();
     });
     document.getElementById("startModalClose").addEventListener("click", ()=>{
       startModal.style.display = "none";
@@ -1988,8 +1999,15 @@
       const pin = document.getElementById("coachPin").value.trim();
       if(pin === COACH_PIN){
         setCoachMode(true);
-        alert("Traineransicht aktiviert.");
-      } else alert("Falscher PIN-Code.");
+      } else {
+        alert("Falscher PIN-Code.");
+        document.getElementById("coachPin").value = "";
+        document.getElementById("coachPin").focus();
+      }
+    });
+    // Also allow Enter key on PIN field
+    document.getElementById("coachPin").addEventListener("keydown", (e)=>{
+      if(e.key === "Enter") document.getElementById("coachLoginBtn").click();
     });
 
     // File uploads
@@ -2129,6 +2147,13 @@
         coachLoginCard.classList.add("hidden");
         modeLabel.textContent = "Traineransicht";
         dot.classList.add("coach");
+        // Switch to Trainer nav tab automatically
+        document.querySelectorAll(".nav-tab").forEach(t => t.classList.remove("active"));
+        document.querySelectorAll(".nav-content").forEach(c => c.classList.remove("active"));
+        const trainerTab = document.querySelector('.nav-tab[data-nav="coachNav"]');
+        const trainerContent = document.getElementById("coachNav");
+        if(trainerTab) trainerTab.classList.add("active");
+        if(trainerContent) trainerContent.classList.add("active");
         // render coach code manager
         if(window.HCIPlayerCodes && typeof window.HCIPlayerCodes.renderCoachCodeManager === "function") window.HCIPlayerCodes.renderCoachCodeManager();
       } else {
