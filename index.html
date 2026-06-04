@@ -1815,6 +1815,42 @@ async function _savePlayerAndTest(entry, player) {
   } catch(e) { console.error('_savePlayerAndTest:', e); }
 }
 
+
+  /* ══════════════════════════════════════
+     OVERRIDES — neutralise original JS
+     functions that reference old HTML IDs
+  ══════════════════════════════════════ */
+
+  // updateModeUI in original JS tries to find #modeBadge, #coachArea, #coachLoginCard
+  // which no longer exist with those IDs. Replace with no-op.
+  window.setCoachMode = function(on) {
+    if(on) localStorage.setItem('hci_coach_mode','1');
+    else localStorage.removeItem('hci_coach_mode');
+    // Don't call updateModeUI — _activateCoach/_deactivateCoach handle UI
+  };
+  function updateModeUI() { /* neutralised — handled by _activateCoach/_deactivateCoach */ }
+  function isCoachMode() { return localStorage.getItem('hci_coach_mode') === '1'; }
+
+  // refreshStarView — safe wrapper
+  function refreshStarView() {
+    const pid = document.getElementById('starPlayerSelect') ? document.getElementById('starPlayerSelect').value : '';
+    if(pid && window.STARForm && window.STARForm.loadProfileToUI) {
+      const date = document.getElementById('profileDate') ? document.getElementById('profileDate').value : new Date().toISOString().slice(0,10);
+      window.STARForm.loadProfileToUI(pid, date);
+    }
+  }
+
+  // ensurePlayer — direct version, NO DB call (DB called explicitly at save points)
+  function ensurePlayer(name, team) {
+    const id = getPlayerIdFromName(name);
+    if(!DATA.players[id]) {
+      DATA.players[id] = {id, name, team:team||'U18', email:null, code:null, codeExpiresAt:null, tests:[], star:{}};
+    } else if(team) {
+      DATA.players[id].team = team;
+    }
+    return DATA.players[id];
+  }
+
 /* ══════════════════════════════════════
    NAVIGATION
 ══════════════════════════════════════ */
