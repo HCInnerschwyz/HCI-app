@@ -915,7 +915,8 @@ async function _loadFromDB() {
   function refreshAllViews(){
     refreshPlayerSelects();
     refreshTestsTable();
-    refreshStarView();
+    // refreshStarView is defined inside a closure — call safely
+    if(typeof refreshStarView === 'function') refreshStarView();
     refreshProgressChart();
   }
 
@@ -1755,24 +1756,13 @@ async function _loadFromDB() {
     };
     function isCoachMode(){ return localStorage.getItem("hci_coach_mode") === "1"; }
     function updateModeUI(){
-      const coachArea = document.getElementById("coachArea");
-      const coachLoginCard = document.getElementById("coachLoginCard");
-      const modeBadge = document.getElementById("modeBadge");
+      const coachArea = document.getElementById("coachArea") || document.getElementById("trainerArea");
+      const coachLoginCard = document.getElementById("coachLoginCard") || document.getElementById("trainerLoginCard");
+      const modeBadge = document.getElementById("modeBadge") || document.getElementById("modePill");
       const modeLabel = document.getElementById("modeLabel");
-      const dot = modeBadge.querySelector(".mode-dot");
-      if(isCoachMode()){
-        coachArea.classList.remove("hidden");
-        coachLoginCard.classList.add("hidden");
-        modeLabel.textContent = "Traineransicht";
-        dot.classList.add("coach");
-        // render coach code manager
-        if(window.HCIPlayerCodes && typeof window.HCIPlayerCodes.renderCoachCodeManager === "function") window.HCIPlayerCodes.renderCoachCodeManager();
-      } else {
-        coachArea.classList.add("hidden");
-        coachLoginCard.classList.remove("hidden");
-        modeLabel.textContent = "Spieleransicht";
-        dot.classList.remove("coach");
-      }
+      const dot = modeBadge ? modeBadge.querySelector(".mode-dot") : null;
+      if(!modeBadge) return; // new HTML structure — handled by _activateCoach
+      // handled by _activateCoach/_deactivateCoach in new structure
       if(window.STARForm && typeof window.STARForm.setCoachMode === "function") window.STARForm.setCoachMode(isCoachMode());
     }
 
