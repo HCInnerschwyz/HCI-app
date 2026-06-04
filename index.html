@@ -178,15 +178,15 @@ tr:hover td{background:var(--ice)}
 <!-- ══ PAGE: TESTS ══ -->
 <div id="pageTests" class="page active">
   <div class="card">
-    <div class="row" style="align-items:flex-end">
+    <div class="row" style="align-items:flex-end" id="filterRow">
       <div class="field wide">
         <label for="viewModePlayer">Spieler</label>
         <select id="viewModePlayer"></select>
       </div>
-      <div class="field"><label for="viewTeam">Team</label>
+      <div class="field" id="filterTeamCol"><label for="viewTeam">Team</label>
         <select id="viewTeam"><option value="ALL">Alle</option><option value="U18">U18</option><option value="U21">U21</option></select>
       </div>
-      <div class="field"><label for="viewSeason">Saison</label>
+      <div class="field" id="filterSeasonCol"><label for="viewSeason">Saison</label>
         <select id="viewSeason"><option value="ALL">Alle</option><option value="2025/26">2025/26</option><option value="2026/27">2026/27</option></select>
       </div>
     </div>
@@ -762,10 +762,14 @@ async function _loadFromDB() {
      --------------------------- */
   function refreshPlayerSelects(){
     const selects = [document.getElementById("viewModePlayer"), document.getElementById("starPlayerSelect")];
-    const playersArr = Object.values(DATA.players).sort((a,b)=>a.name.localeCompare(b.name));
+    const _loggedPid = window._loggedInPlayerId || null;
+    // If a player is logged in, only show their own entry in the dropdowns
+    const playersArr = Object.values(DATA.players)
+      .filter(p => !_loggedPid || p.id === _loggedPid)
+      .sort((a,b)=>a.name.localeCompare(b.name));
     selects.forEach(sel=>{
       if(!sel) return;
-      const current = sel.value;
+      const current = _loggedPid || sel.value;
       sel.innerHTML = "";
       const opt = document.createElement("option");
       opt.value = "";
@@ -778,8 +782,16 @@ async function _loadFromDB() {
         sel.appendChild(o);
       });
       if(current) sel.value = current;
+      // Lock dropdown if player is logged in
+      if(_loggedPid) sel.disabled = true;
     });
     updatePlayerHeader();
+    // Show/hide team+season filters based on whether a player is logged in
+    const _lp = window._loggedInPlayerId;
+    const ftc = document.getElementById('filterTeamCol');
+    const fsc = document.getElementById('filterSeasonCol');
+    if(ftc) ftc.style.display = _lp ? 'none' : '';
+    if(fsc) fsc.style.display = _lp ? 'none' : '';
   }
 
   function updatePlayerHeader(){
@@ -821,8 +833,11 @@ async function _loadFromDB() {
     const teamFilter = document.getElementById("viewTeam").value;
     const seasonFilter = document.getElementById("viewSeason").value;
     const playerFilter = document.getElementById("viewModePlayer").value;
+    const _loggedPid = window._loggedInPlayerId || null;
     const allTests = [];
     Object.values(DATA.players).forEach(p=>{
+      // If a player is logged in (non-coach), only show their own tests
+      if(_loggedPid && p.id !== _loggedPid) return;
       p.tests.forEach(t=> allTests.push({...t, playerTeam: p.team}));
     });
     allTests.filter(t=>{
@@ -1130,7 +1145,29 @@ async function _loadFromDB() {
     }
 
     function setCoachModeLocal(isCoach){
-      qsa("[data-coach-only]").forEach(el=> el.style.display = isCoach ? "" : "none");
+      const isPlayer = !isCoach && !!window._loggedInPlayerId;
+      qsa("[data-coach-only]").forEach(el=> {
+        if(isCoach){
+          // Coach: show and make editable
+          el.style.display = "";
+          el.querySelectorAll("textarea,input,select").forEach(f=>{ f.disabled=false; f.style.background=""; });
+        } else if(isPlayer){
+          // Player: show as read-only
+          el.style.display = "";
+          el.querySelectorAll("textarea,input,select").forEach(f=>{
+            f.disabled=true;
+            f.style.background="var(--ice)";
+          });
+          // Update label to indicate it's coach comment (read-only)
+          el.querySelectorAll("label").forEach(l=>{
+            if(!l.dataset.orig) l.dataset.orig = l.textContent;
+            l.textContent = l.dataset.orig + " (nur Trainer)";
+          });
+        } else {
+          // Anonymous: hide
+          el.style.display = "none";
+        }
+      });
     }
 
     function initStarForm(){
@@ -1859,6 +1896,7 @@ const PIN='HCI2026AM';
 
 function _activateCoach(){
   localStorage.setItem('hci_coach_mode','1');
+  _setContentVisible(true);
   document.getElementById('trainerLoginCard').classList.add('hidden');
   document.getElementById('trainerArea').classList.remove('hidden');
   document.getElementById('modeLabel').textContent='Traineransicht';
@@ -1874,6 +1912,7 @@ function _activateCoach(){
 
 function _deactivateCoach(){
   localStorage.removeItem('hci_coach_mode');
+  window._loggedInPlayerId = null;
   document.getElementById('trainerLoginCard').classList.remove('hidden');
   document.getElementById('trainerArea').classList.add('hidden');
   document.getElementById('modeLabel').textContent='Spieleransicht';
@@ -1920,9 +1959,18 @@ if(localStorage.getItem('hci_coach_mode')==='1') {
 } else {
   // Only show modal if not already logged in via Supabase
   _SB.auth.getSession().then((sbResp)=>{
-    if(!sbResp.data.session) document.getElementById('startModal').style.display='flex';
-    else document.getElementById('startModal').style.display='none';
-  }).catch(()=>{ document.getElementById('startModal').style.display='flex'; });
+    if(!sbResp.data.session && !isCoachMode()){
+      // Not logged in — show modal and blur content
+      document.getElementById('startModal').style.display='flex';
+      _setContentVisible(false);
+    } else {
+      document.getElementById('startModal').style.display='none';
+      _setContentVisible(true);
+    }
+  }).catch(()=>{
+    document.getElementById('startModal').style.display='flex';
+    _setContentVisible(false);
+  });
 }
 
 /* ══════════════════════════════════════
@@ -1957,10 +2005,12 @@ document.getElementById('playerEmailLoginBtn').addEventListener('click',()=>{
 // Logout
 document.getElementById('playerEmailLogoutBtn').addEventListener('click',async()=>{
   await _SB.auth.signOut();
+  window._loggedInPlayerId = null;
   if(window.HCIPlayerCodes) window.HCIPlayerCodes.logoutPlayer();
   document.getElementById('playerEmailInput').value='';
   document.getElementById('playerEmailInput').style.display='';
-  document.getElementById('playerEmailLoginBtn').classList.remove('hidden');
+  const elb2=document.getElementById('playerEmailLoginBtn');
+  if(elb2){elb2.classList.remove('hidden');elb2.disabled=false;}
   document.getElementById('playerEmailLogoutBtn').classList.add('hidden');
   document.getElementById('playerLoginMsg').textContent='';
   document.getElementById('modeLabel').textContent='Spieleransicht';
@@ -1975,14 +2025,21 @@ _SB.auth.onAuthStateChange(async(event,session)=>{
     await _loadFromDB();
     const player=Object.values(DATA.players).find(p=>p.email&&p.email.toLowerCase()===email.toLowerCase());
     if(player){
+      window._loggedInPlayerId = player.id;
+      _setContentVisible(true);
       if(window.HCIPlayerCodes) window.HCIPlayerCodes.loginAsPlayer(player.id);
-      document.getElementById('modeLabel').textContent=player.name;
-      document.getElementById('startModal').style.display='none';
-      document.getElementById('playerLoginMsg').textContent='Angemeldet: '+player.name;
-      document.getElementById('playerLoginMsg').style.color='var(--good)';
-      document.getElementById('playerEmailInput').style.display='none';
-      document.getElementById('playerEmailLoginBtn').classList.add('hidden');
-      document.getElementById('playerEmailLogoutBtn').classList.remove('hidden');
+      // Update STAR form to show coach comments as read-only
+      if(window.STARForm) window.STARForm.setCoachMode(false);
+      document.getElementById('modeLabel').textContent = player.name;
+      document.getElementById('startModal').style.display = 'none';
+      const lm = document.getElementById('playerLoginMsg');
+      if(lm){ lm.textContent='Angemeldet: '+player.name; lm.style.color='var(--good)'; }
+      const ei = document.getElementById('playerEmailInput');
+      if(ei) ei.style.display = 'none';
+      const elb = document.getElementById('playerEmailLoginBtn');
+      if(elb) elb.classList.add('hidden');
+      const elo = document.getElementById('playerEmailLogoutBtn');
+      if(elo) elo.classList.remove('hidden');
       refreshAllViews();
     }
   }
