@@ -366,8 +366,8 @@
           </div>
         </div>
         <div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap">
-          <input id="playerCodeInput" type="text" placeholder="Spieler-Code eingeben" style="max-width:180px" />
-          <button id="playerCodeLoginBtn" class="btn-primary">Anmelden</button>
+          <input id="playerCodeInput" type="email" placeholder="E-Mail-Adresse" style="max-width:220px" />
+          <button id="playerCodeLoginBtn" class="btn-primary">Link senden</button>
           <button id="playerCodeLogoutBtn" class="btn-secondary hidden">Abmelden</button>
           <div id="playerLoginMsg" class="info" style="margin-left:6px"></div>
         </div>
@@ -443,6 +443,10 @@
               <label for="manualPlayerName">Name (Nachname, Vorname)</label>
               <input type="text" id="manualPlayerName" placeholder="z.B. Ankli, Livio" />
             </div>
+            <div class="flex-col" style="flex:1 1 200px">
+              <label for="manualPlayerEmail">E-Mail-Adresse</label>
+              <input type="email" id="manualPlayerEmail" placeholder="spieler@email.com" />
+            </div>
           </div>
           <div class="flex-row" style="margin-top:8px">
             <div class="flex-col" style="flex:1 1 90px"><label for="manualGroesse">Grösse [cm]</label><input type="number" id="manualGroesse" /></div>
@@ -484,17 +488,12 @@
       <div class="options">
         <div class="card-compact">
           <h3>🏒 Als Spieler anmelden</h3>
-          <p class="info">Gib deinen persönlichen Code ein, um nur deine Daten zu sehen.</p>
+          <p class="info">Gib deine E-Mail-Adresse ein. Du erhältst einen Anmeldelink per E-Mail.</p>
           <div style="display:flex;gap:8px;margin-top:10px">
-            <input id="startPlayerCode" placeholder="Spieler-Code" style="flex:1;padding:8px;border-radius:6px;border:0.5px solid var(--border)" />
-            <button id="startPlayerBtn" class="btn-primary">Weiter</button>
+            <input id="startPlayerEmail" type="email" placeholder="deine@email.com" style="flex:1;padding:8px;border-radius:6px;border:0.5px solid var(--border)" />
+            <button id="startPlayerBtn" class="btn-primary">Link senden</button>
           </div>
-          <div style="margin-top:10px">
-            <p class="info" style="margin-bottom:6px">Oder importiere die JSON-Datei vom Trainer:</p>
-            <label class="btn-secondary btn-small" style="cursor:pointer;display:inline-flex">📂 Datei wählen
-              <input id="startImportFile" type="file" accept=".json" style="display:none" />
-            </label>
-          </div>
+          <div id="startPlayerMsg" class="info" style="margin-top:8px;display:none"></div>
         </div>
         <div class="card-compact">
           <h3>🔒 Als Trainer anmelden</h3>
@@ -539,7 +538,8 @@
       const { error } = await _SB.from('players').upsert({
         id: p.id, name: p.name, team: p.team || 'U18',
         code: p.code || null,
-        code_expires_at: p.codeExpiresAt || null
+        code_expires_at: p.codeExpiresAt || null,
+        email: p.email || null
       }, { onConflict: 'id' });
       if (error) console.error('upsertPlayer:', error);
     },
@@ -596,6 +596,7 @@
       (players || []).forEach(p => {
         DATA.players[p.id] = {
           id: p.id, name: p.name, team: p.team,
+          email: p.email || null,
           code: p.code, codeExpiresAt: p.code_expires_at,
           tests: [], star: {}
         };
@@ -1836,16 +1837,28 @@
         }
       }
 
-      loginBtn.addEventListener("click", ()=>{
-        const code = input.value.trim();
-        if(!code){ alert("Syötä koodi"); return; }
-        const pid = findPlayerByCode(code);
-        if(!pid){ alert("Koodi ei kelpaa tai on vanhentunut"); return; }
-        loginAsPlayer(pid);
-        updateUIForLogin();
-        alert("Kirjauduttu sisään pelaajana");
-        const modal = document.getElementById("startModal");
-        if(modal) modal.style.display = "none";
+      loginBtn.addEventListener("click", async ()=>{
+        const email = input.value.trim();
+        const msg = document.getElementById("playerLoginMsg");
+        if(!email){ alert("Bitte E-Mail-Adresse eingeben"); return; }
+        const { data: players } = await _SB.from('players').select('id,name,email').eq('email', email);
+        if(!players || !players.length){
+          msg.textContent='E-Mail nicht registriert. Bitte Trainer kontaktieren.';
+          msg.style.color='var(--bad)';
+          return;
+        }
+        const { error } = await _SB.auth.signInWithOtp({
+          email,
+          options: { emailRedirectTo: window.location.href }
+        });
+        if(error){
+          msg.textContent='Fehler: ' + error.message;
+          msg.style.color='var(--bad)';
+        } else {
+          msg.textContent='✓ Link gesendet! Prüfe deine E-Mails.';
+          msg.style.color='var(--good)';
+          loginBtn.disabled = true;
+        }
       });
 
       logoutBtn.addEventListener("click", ()=>{
@@ -1896,14 +1909,32 @@
 
     // Start modal controls
     const startModal = document.getElementById("startModal");
-    document.getElementById("startPlayerBtn").addEventListener("click", ()=>{
-      const code = document.getElementById("startPlayerCode").value.trim();
-      if(!code){ alert("Bitte Code eingeben"); return; }
-      const pid = window.HCIPlayerCodes.findPlayerByCode(code);
-      if(!pid){ alert("Koodi ei kelpaa tai on vanhentunut"); return; }
-      window.HCIPlayerCodes.loginAsPlayer(pid);
-      startModal.style.display = "none";
-      refreshAllViews();
+    document.getElementById("startPlayerBtn").addEventListener("click", async ()=>{
+      const email = document.getElementById("startPlayerEmail").value.trim();
+      const msg = document.getElementById("startPlayerMsg");
+      if(!email){ alert("Bitte E-Mail-Adresse eingeben"); return; }
+      // Check if email exists in our players
+      const { data: players } = await _SB.from('players').select('id,name,email').eq('email', email);
+      if(!players || !players.length){
+        msg.style.display='block';
+        msg.style.color='var(--bad)';
+        msg.textContent='Diese E-Mail-Adresse ist nicht registriert. Bitte wende dich an den Trainer.';
+        return;
+      }
+      const { error } = await _SB.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: window.location.href }
+      });
+      if(error){
+        msg.style.display='block';
+        msg.style.color='var(--bad)';
+        msg.textContent='Fehler: ' + error.message;
+      } else {
+        msg.style.display='block';
+        msg.style.color='var(--good)';
+        msg.textContent='✓ Link gesendet! Prüfe deine E-Mails und klicke auf den Link.';
+        document.getElementById("startPlayerBtn").disabled = true;
+      }
     });
     document.getElementById("startCoachBtn").addEventListener("click", ()=>{
       const pin = document.getElementById("startCoachPin").value.trim();
@@ -1978,7 +2009,12 @@
       const season = document.getElementById("manualSeason").value;
       const type = document.getElementById("manualType").value || "Sonstiger";
       const name = document.getElementById("manualPlayerName").value.trim();
+      const email = document.getElementById("manualPlayerEmail") ? document.getElementById("manualPlayerEmail").value.trim() : "";
       if(!name){ alert("Spielername ist erforderlich."); return; }
+      // Store email on player object
+      const _pid = getPlayerIdFromName(name);
+      if(email && DATA.players[_pid]) DATA.players[_pid].email = email;
+      else if(email) { ensurePlayer(name, document.getElementById("manualTeam").value); DATA.players[_pid].email = email; DB.upsertPlayer(DATA.players[_pid]).catch(console.error); }
       const groesse = document.getElementById("manualGroesse").value;
       const gewicht = document.getElementById("manualGewicht").value;
       const yo = document.getElementById("manualYoYo").value;
@@ -2223,6 +2259,91 @@
   });
 </script>
 
+
+  /* ===== SUPABASE AUTH: handle magic link return & session ===== */
+  (function() {
+    // On page load, check if user is already logged in via Supabase session
+    async function checkSupabaseSession() {
+      const { data: { session } } = await _SB.auth.getSession();
+      if (session && session.user) {
+        await loginByEmail(session.user.email);
+      }
+    }
+
+    // Listen for auth state changes (magic link click lands here)
+    _SB.auth.onAuthStateChange(async (event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session && session.user) {
+        await loginByEmail(session.user.email);
+        // Close modal if open
+        const modal = document.getElementById('startModal');
+        if (modal) modal.style.display = 'none';
+      }
+      if (event === 'SIGNED_OUT') {
+        // reset to player view
+        if (window.HCIPlayerCodes) window.HCIPlayerCodes.logoutPlayer();
+        refreshAllViews();
+      }
+    });
+
+    async function loginByEmail(email) {
+      // Find player by email in DATA
+      const players = Object.values(DATA.players);
+      let player = players.find(p => p.email && p.email.toLowerCase() === email.toLowerCase());
+      if (!player) {
+        // Try fetching from DB in case DATA not loaded yet
+        const { data } = await _SB.from('players').select('*').eq('email', email).limit(1);
+        if (data && data.length) {
+          await loadAllFromSupabase();
+          player = Object.values(DATA.players).find(p => p.email && p.email.toLowerCase() === email.toLowerCase());
+        }
+      }
+      if (player) {
+        // Use existing player code system for view restrictions
+        if (window.HCIPlayerCodes) {
+          window.HCIPlayerCodes.loginAsPlayer(player.id);
+        }
+        // Update mode badge
+        const modeLabel = document.getElementById('modeLabel');
+        const dot = document.getElementById('modeBadge')?.querySelector('.mode-dot');
+        if (modeLabel) modeLabel.textContent = player.name;
+        if (dot) { dot.classList.remove('coach'); }
+
+        // Update login UI in STAR tab
+        const input = document.getElementById('playerCodeInput');
+        const loginBtn = document.getElementById('playerCodeLoginBtn');
+        const logoutBtn = document.getElementById('playerCodeLogoutBtn');
+        const msg = document.getElementById('playerLoginMsg');
+        if (input) input.style.display = 'none';
+        if (loginBtn) loginBtn.classList.add('hidden');
+        if (logoutBtn) logoutBtn.classList.remove('hidden');
+        if (msg) { msg.textContent = `Angemeldet als: ${player.name}`; msg.style.color = 'var(--good)'; }
+
+        refreshAllViews();
+      }
+    }
+
+    // Wire logout button
+    document.addEventListener('DOMContentLoaded', () => {
+      const logoutBtn = document.getElementById('playerCodeLogoutBtn');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+          await _SB.auth.signOut();
+          if (window.HCIPlayerCodes) window.HCIPlayerCodes.logoutPlayer();
+          const input = document.getElementById('playerCodeInput');
+          const loginBtn = document.getElementById('playerCodeLoginBtn');
+          if (input) { input.style.display = ''; input.value = ''; }
+          if (loginBtn) loginBtn.classList.remove('hidden');
+          logoutBtn.classList.add('hidden');
+          const msg = document.getElementById('playerLoginMsg');
+          if (msg) msg.textContent = '';
+          const modeLabel = document.getElementById('modeLabel');
+          if (modeLabel) modeLabel.textContent = 'Spieleransicht';
+          refreshAllViews();
+        });
+      }
+      checkSupabaseSession();
+    });
+  })();
   <script>
   if("serviceWorker" in navigator){
     window.addEventListener("load", () => {
