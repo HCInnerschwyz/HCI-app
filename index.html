@@ -608,6 +608,7 @@ const _SB = supabase.createClient("https://dzfuzilcaujvbauzmzyi.supabase.co", "s
 
 /* Safe chart refresh wrapper - defined early */
 window._safeRefreshChart = function(){ if(typeof refreshProgressChart === "function") refreshProgressChart(); else if(window._baseRefreshChart) window._baseRefreshChart(); };
+window._destroyChart = function(){ try{ if(window.progressChart && typeof window.progressChart.destroy==='function') window.progressChart.destroy(); } catch(e){} window.progressChart=null; };
 function _showSync(on){ document.getElementById('syncBanner').style.display=on?'flex':'none'; }
 
 window._DB = {
@@ -1106,7 +1107,7 @@ async function _loadDB(){
     const playerId = document.getElementById("viewModePlayer").value;
     const metric = document.getElementById("metricSelect").value;
     if(!playerId || !DATA.players[playerId]){
-      if(progressChart){ progressChart.destroy(); progressChart = null; }
+      window._destroyChart();
       return;
     }
     const player = DATA.players[playerId];
@@ -1116,7 +1117,7 @@ async function _loadDB(){
       return (order[a.type] ?? 1) - (order[b.type] ?? 1);
     });
 
-    if(progressChart) progressChart.destroy();
+    window._destroyChart(); progressChart = null;
 
     const labels = [], data = [];
     tests.forEach(t=>{
@@ -3146,7 +3147,7 @@ function _refreshTeamAvgChart(){
   });
 
   if(!Object.keys(groups).length){
-    if(window.progressChart){ window.progressChart.destroy(); window.progressChart = null; }
+    window._destroyChart();
     // Show "no data" message
     const hdr = canvas.parentElement;
     let msg = hdr.querySelector('.chart-no-data');
@@ -3178,7 +3179,7 @@ function _refreshTeamAvgChart(){
 
   const counts = labels.map(k=>groups[k].length);
 
-  if(window.progressChart){ window.progressChart.destroy(); window.progressChart = null; }
+  window._destroyChart();
   window.progressChart = new Chart(ctx, {
     type: 'bar',
     data: {
