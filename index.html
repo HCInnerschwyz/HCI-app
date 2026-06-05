@@ -330,6 +330,18 @@ tr:hover td{background:var(--ice)}
 
       <!-- Testresultate -->
       <div class="card">
+        <div class="card-hd"><h2>Testresultate verwalten</h2></div>
+        <div class="frow" style="align-items:flex-end;max-width:500px;margin-bottom:12px">
+          <div class="fg w">
+            <label for="delTestPlayerSel">Spieler</label>
+            <select id="delTestPlayerSel"><option value="">— Spieler wählen —</option></select>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="loadTestsBtn">Laden</button>
+        </div>
+        <div id="testManageList"></div>
+      </div>
+
+      <div class="card">
         <div class="card-hd"><h2>Testresultate erfassen</h2></div>
         <div class="frow">
           <div class="fg w"><label for="manualPlayerSel">Spieler</label><select id="manualPlayerSel"></select></div>
@@ -346,6 +358,18 @@ tr:hover td{background:var(--ice)}
           <div class="fg"><label for="manualHupf">5er Hupf (m)</label><input type="number" step="0.01" id="manualHupf"/></div>
         </div>
         <button class="btn btn-primary" id="manualAddBtn" style="margin-top:12px">Testresultat speichern</button>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><h2>STAR Profile verwalten</h2></div>
+        <div class="frow" style="align-items:flex-end;max-width:500px;margin-bottom:12px">
+          <div class="fg w">
+            <label for="delStarPlayerSel">Spieler</label>
+            <select id="delStarPlayerSel"><option value="">— Spieler wählen —</option></select>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="loadStarProfilesBtn">Laden</button>
+        </div>
+        <div id="starManageList"></div>
       </div>
     </div>
   </div>
@@ -1766,8 +1790,8 @@ function _activateCoach(){
   document.getElementById('pgTrainer').classList.add('active');
   window._renderPlayerList&&window._renderPlayerList();
   _refreshManualSel();
+  _populateDelSelects&&_populateDelSelects();
   refreshAllViews();
-  // Re-populate star player select
   const sps = document.getElementById('starPlayerSelect');
   if(sps && sps.options.length <= 1) _baseRefreshPS();
 }
@@ -1918,6 +1942,7 @@ document.getElementById('addPlayerBtn').addEventListener('click',async()=>{
     document.getElementById('newPlayerName').value='';
     document.getElementById('newPlayerEmail').value='';
     refreshAllViews(); window._renderPlayerList(); _refreshManualSel();
+    _populateDelSelects&&_populateDelSelects();
     alert(name+' hinzugefügt.');
   }catch(e){alert('Fehler: '+e.message);}
 });
@@ -2139,6 +2164,134 @@ function _renderStarSummary(hist, older){
   out += '</div>';
   container.innerHTML = out;
 }
+
+
+/* ══════════════════════════════════
+   TRAINER: MANAGE TESTS & STAR PROFILES
+══════════════════════════════════ */
+
+function _populateDelSelects(){
+  const players = Object.values(DATA.players).sort((a,b)=>a.name.localeCompare(b.name));
+  const opts = '<option value="">— Spieler wählen —</option>' +
+    players.map(p=>`<option value="${p.id}">${p.name} (${p.team})</option>`).join('');
+  const s1 = document.getElementById('delTestPlayerSel');
+  const s2 = document.getElementById('delStarPlayerSel');
+  if(s1) s1.innerHTML = opts;
+  if(s2) s2.innerHTML = opts;
+}
+
+function _renderTestManageList(pid){
+  const container = document.getElementById('testManageList');
+  if(!container) return;
+  const p = DATA.players[pid];
+  if(!p || !p.tests.length){
+    container.innerHTML = '<p class="info">Keine Testresultate gefunden.</p>';
+    return;
+  }
+  // Group tests by season+type+date for display
+  const tests = [...p.tests].sort((a,b)=>(b.season||'').localeCompare(a.season||''));
+  container.innerHTML = `<div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Saison</th><th>Kategorie</th><th>Yo-Yo</th>
+        <th>Rumpfstabi</th><th>Liegestütz</th><th>Klimmzüge</th><th>5er Hupf</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        ${tests.map((t,i)=>`<tr>
+          <td>${t.season||'—'}</td>
+          <td>${t.type||'—'}</td>
+          <td>${t.yoYo??'—'}</td>
+          <td>${t.core??'—'}</td>
+          <td>${t.pushups??'—'}</td>
+          <td>${t.pullups??'—'}</td>
+          <td>${t.hupf!=null?Number(t.hupf).toFixed(2):'—'}</td>
+          <td><button class="btn btn-danger btn-xs" data-idx="${i}" data-dbid="${t.dbId||''}">Löschen</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+
+  container.querySelectorAll('[data-idx]').forEach(btn=>{
+    btn.addEventListener('click', async()=>{
+      const idx = parseInt(btn.dataset.idx);
+      const dbId = btn.dataset.dbid;
+      const t = p.tests[idx];
+      if(!confirm(`Testresultat (${t.season} ${t.type}) wirklich löschen?`)) return;
+      // Delete from Supabase
+      if(dbId){
+        const {error} = await _SB.from('tests').delete().eq('id', dbId);
+        if(error){ alert('Fehler: '+error.message); return; }
+      }
+      // Remove from local DATA
+      p.tests.splice(idx, 1);
+      refreshAllViews();
+      _renderTestManageList(pid);
+    });
+  });
+}
+
+async function _renderStarManageList(pid){
+  const container = document.getElementById('starManageList');
+  if(!container) return;
+  container.innerHTML = '<p class="info">Lade...</p>';
+  const profiles = await window._DB.loadStarHistory(pid);
+  if(!profiles.length){
+    container.innerHTML = '<p class="info">Keine STAR Profile gefunden.</p>';
+    return;
+  }
+  container.innerHTML = `<div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Datum</th><th>Profildatum</th><th>Version</th><th>Gespeichert von</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${profiles.map(pr=>{
+          const d = new Date(pr.saved_at);
+          const dateStr = d.toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+          const byStr = pr.saved_by==='coach'?'Trainer':'Spieler';
+          return `<tr>
+            <td>${dateStr}</td>
+            <td>${pr.profile_date||'—'}</td>
+            <td>v${pr.version}</td>
+            <td>${byStr}</td>
+            <td><button class="btn btn-danger btn-xs" data-id="${pr.id}">Löschen</button></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>`;
+
+  container.querySelectorAll('[data-id]').forEach(btn=>{
+    btn.addEventListener('click', async()=>{
+      const id = btn.dataset.id;
+      if(!confirm('Dieses STAR Profil wirklich löschen?')) return;
+      const {error} = await _SB.from('star_profiles').delete().eq('id', id);
+      if(error){ alert('Fehler: '+error.message); return; }
+      await _renderStarManageList(pid);
+      // Refresh history if this player is open in STAR tab
+      if(document.getElementById('starPlayerSelect')?.value === pid){
+        _loadStarHistory(pid);
+      }
+    });
+  });
+}
+
+// Wire up load buttons
+document.getElementById('loadTestsBtn')?.addEventListener('click',()=>{
+  const pid = document.getElementById('delTestPlayerSel').value;
+  if(!pid){ alert('Bitte Spieler wählen.'); return; }
+  _renderTestManageList(pid);
+});
+
+document.getElementById('loadStarProfilesBtn')?.addEventListener('click',()=>{
+  const pid = document.getElementById('delStarPlayerSel').value;
+  if(!pid){ alert('Bitte Spieler wählen.'); return; }
+  _renderStarManageList(pid);
+});
+
+// Populate selects when trainer activates
+const _origActivateCoach = _activateCoach;
 </script>
 </body>
 </html>
