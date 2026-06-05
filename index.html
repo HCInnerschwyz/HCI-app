@@ -2133,16 +2133,7 @@ document.getElementById('playerEmailLogoutBtn').addEventListener('click',async()
   await _SB.auth.signOut(); _logoutPlayer();
 });
 
-// Magic links
-document.getElementById('startPlayerBtn').addEventListener('click',()=>{
-  _sendLink(document.getElementById('startEmail').value.trim(),
-    document.getElementById('startPlayerMsg'),document.getElementById('startPlayerBtn'));
-});
-document.getElementById('startEmail').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('startPlayerBtn').click();});
-document.getElementById('playerEmailLoginBtn').addEventListener('click',()=>{
-  _sendLink(document.getElementById('playerEmailInput').value.trim(),
-    document.getElementById('playerLoginMsg'),document.getElementById('playerEmailLoginBtn'));
-});
+// OTP handlers defined below
 
 // Excel
 document.getElementById('fileU18').addEventListener('change',e=>{if(e.target.files[0])parseExcelFile(e.target.files[0],'U18');});
