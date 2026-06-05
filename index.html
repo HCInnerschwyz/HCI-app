@@ -169,11 +169,35 @@ tr:hover td{background:var(--ice)}
 .pill-toggle{display:inline-flex;border-radius:var(--r);border:1px solid var(--border);overflow:hidden}
 .pill-toggle button{border:none;padding:6px 14px;font-family:'Bebas Neue',sans-serif;font-size:.76rem;letter-spacing:.1em;background:transparent;color:var(--muted);cursor:pointer;text-transform:uppercase}
 .pill-toggle button.active{background:var(--navy);color:#fff}
+.fq-item{margin-bottom:16px}
+.fq-label{display:block;font-family:'Bebas Neue',sans-serif;font-size:.78rem;letter-spacing:.12em;
+  color:var(--ink);text-transform:uppercase;margin-bottom:6px}
+.fq-textarea{width:100%;min-height:80px;resize:vertical;font-size:.88rem;line-height:1.5;
+  font-family:'Barlow',sans-serif;padding:9px 11px;border:1px solid var(--border);
+  border-radius:var(--r);background:#fff;color:var(--ink);transition:.15s}
+.fq-textarea:focus{outline:none;border-color:var(--orange);box-shadow:0 0 0 3px var(--orange-a)}
+.fq-textarea[disabled]{background:var(--ice2);color:var(--ink2)}
+.fq-summary-card{background:#fff;border:1px solid var(--border);border-radius:var(--r2);
+  padding:18px;margin-bottom:14px;box-shadow:var(--sh)}
+.fq-summary-card h3{font-family:'Bebas Neue',sans-serif;font-size:.9rem;letter-spacing:.14em;
+  color:var(--ink);text-transform:uppercase;margin-bottom:12px;padding-bottom:8px;
+  border-bottom:1px solid var(--ice2)}
+.fq-summary-row{padding:10px 0;border-bottom:1px solid var(--ice2)}
+.fq-summary-row:last-child{border-bottom:none}
+.fq-summary-q{font-family:'Bebas Neue',sans-serif;font-size:.72rem;letter-spacing:.1em;
+  color:var(--muted);text-transform:uppercase;margin-bottom:4px}
+.fq-summary-a{font-size:.86rem;color:var(--ink2);line-height:1.6;white-space:pre-wrap}
 .sync-banner{position:fixed;bottom:20px;right:20px;background:var(--navy);color:#fff;padding:9px 18px;border-radius:10px;font-size:.74rem;font-family:'Barlow',sans-serif;z-index:9999;display:none;align-items:center;gap:9px;box-shadow:0 4px 20px rgba(0,0,0,.3)}
 .sync-dot{width:7px;height:7px;border-radius:50%;background:var(--orange);flex-shrink:0;animation:sdp 1s infinite}
 @keyframes sdp{0%,100%{opacity:1}50%{opacity:.2}}
 .content-shell{transition:opacity .2s,filter .2s}
 .content-shell.locked{opacity:.15;pointer-events:none;filter:blur(3px)}
+
+/* Checkboxes */
+input[type=checkbox]{
+  width:16px!important;height:16px;accent-color:var(--orange);
+  border:1.5px solid var(--border);border-radius:3px;cursor:pointer;flex-shrink:0;
+}
 @media(max-width:580px){.modal-cards{flex-direction:column}.modal-card{min-width:unset}.page{padding:12px}.frow .fg{flex:1 1 100%}}
 </style>
 </head>
@@ -191,6 +215,7 @@ tr:hover td{background:var(--ice)}
   <div class="nav">
     <button class="nav-btn active" data-pg="pgTests">Physische Tests</button>
     <button class="nav-btn" data-pg="pgStar">STAR Profil</button>
+    <button class="nav-btn" data-pg="pgFragebogen">Fragebogen</button>
     <button class="nav-btn" data-pg="pgTrainer">Trainer</button>
   </div>
 
@@ -262,11 +287,89 @@ tr:hover td{background:var(--ice)}
     <p class="info" style="margin-bottom:14px">Selbsteinschätzung (1-5), SMART-Ziel und Trainerkommentar pro Bereich.</p>
     <div id="starContainer"></div>
     <div id="starSummary"></div>
-    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-      <button id="exportProfileBtn" class="btn btn-ghost btn-sm">Profil exportieren (JSON)</button>
-      <label class="btn btn-ghost btn-sm" style="cursor:pointer">Profil importieren<input id="importProfileInput" type="file" accept=".json" style="display:none"/></label>
-      <span id="profileImportStatus" class="info" style="align-self:center"></span>
+
+  </div>
+
+
+  <!-- FRAGEBOGEN -->
+  <div id="pgFragebogen" class="page">
+    <div class="card">
+      <div class="card-hd"><h2>Fragebogen</h2></div>
+      <div class="frow" style="align-items:flex-end;margin-bottom:0">
+        <div class="fg w">
+          <label for="fqPlayerSelect">Spieler</label>
+          <select id="fqPlayerSelect"></select>
+        </div>
+      </div>
+      <div id="fqLoginNote" class="info" style="margin-top:10px;display:none">
+        Als Spieler angemeldet — du kannst deine eigenen Antworten eingeben und speichern.
+      </div>
     </div>
+    <div id="fqHistoryWrap" class="hidden">
+      <div class="sec">Gespeicherte Antworten</div>
+      <div class="star-history-bar" id="fqHistoryBar"></div>
+    </div>
+    <div class="card">
+      <div class="card-hd">
+        <h2>Antworten</h2>
+        <button class="btn btn-primary btn-sm" id="fqSaveBtn">Speichern</button>
+      </div>
+      <div id="fqFormFields">
+        <div class="fq-item">
+          <label class="fq-label" for="fq_ziel_mannschaft">Ziel mit der Mannschaft?</label>
+          <textarea id="fq_ziel_mannschaft" name="ziel_mannschaft" class="fq-textarea" rows="3" placeholder="Antwort..."></textarea>
+        </div>
+        <div class="fq-item">
+          <label class="fq-label" for="fq_rolle_team">Rolle im Team?</label>
+          <textarea id="fq_rolle_team" name="rolle_team" class="fq-textarea" rows="3" placeholder="Antwort..."></textarea>
+        </div>
+        <div class="fq-item">
+          <label class="fq-label" for="fq_traeume">Träume?</label>
+          <textarea id="fq_traeume" name="traeume" class="fq-textarea" rows="3" placeholder="Antwort..."></textarea>
+        </div>
+        <div class="fq-item">
+          <label class="fq-label" for="fq_liga_ziel_junioren">Zusätzliche Liga Ziel zu der Junioren Saison</label>
+          <textarea id="fq_liga_ziel_junioren" name="liga_ziel_junioren" class="fq-textarea" rows="3" placeholder="Antwort..."></textarea>
+        </div>
+        <div class="fq-item">
+          <label class="fq-label" for="fq_liga_ziel_nach">Liga Ziel nach den Junioren</label>
+          <textarea id="fq_liga_ziel_nach" name="liga_ziel_nach" class="fq-textarea" rows="3" placeholder="Antwort..."></textarea>
+        </div>
+        <div class="fq-item">
+          <label class="fq-label" for="fq_beruf">Beruf?</label>
+          <textarea id="fq_beruf" name="beruf" class="fq-textarea" rows="3" placeholder="Antwort..."></textarea>
+        </div>
+        <div class="fq-item">
+          <label class="fq-label" for="fq_hobbys">Hobbys neben Eishockey?</label>
+          <textarea id="fq_hobbys" name="hobbys" class="fq-textarea" rows="3" placeholder="Antwort..."></textarea>
+        </div>
+        <div class="fq-item">
+          <label class="fq-label" for="fq_abwesenheiten">Geplante Abwesenheiten (Ferien, Arbeit, Schule usw.)? Wann?</label>
+          <textarea id="fq_abwesenheiten" name="abwesenheiten" class="fq-textarea" rows="3" placeholder="Antwort..."></textarea>
+        </div>
+        <div class="fq-item">
+          <label class="fq-label" for="fq_militaer">Militär? Wenn ja Wann?</label>
+          <textarea id="fq_militaer" name="militaer" class="fq-textarea" rows="3" placeholder="Antwort..."></textarea>
+        </div>
+        <div class="fq-item">
+          <label class="fq-label" for="fq_fragen_coaches">Fragen an die Coaches?</label>
+          <textarea id="fq_fragen_coaches" name="fragen_coaches" class="fq-textarea" rows="3" placeholder="Antwort..."></textarea>
+        </div>
+        <div class="fq-item">
+          <label class="fq-label" for="fq_position_spiele">Position die ich spiele</label>
+          <textarea id="fq_position_spiele" name="position_spiele" class="fq-textarea" rows="3" placeholder="Antwort..."></textarea>
+        </div>
+        <div class="fq-item">
+          <label class="fq-label" for="fq_position_koennte">Position die ich auch spielen könnte?</label>
+          <textarea id="fq_position_koennte" name="position_koennte" class="fq-textarea" rows="3" placeholder="Antwort..."></textarea>
+        </div>
+        <div class="fq-item">
+          <label class="fq-label" for="fq_medizin">Medizinische Info für den Coach?</label>
+          <textarea id="fq_medizin" name="medizin" class="fq-textarea" rows="3" placeholder="Antwort..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div id="fqSummary"></div>
   </div>
 
   <!--  TRAINER  -->
@@ -371,6 +474,18 @@ tr:hover td{background:var(--ice)}
         </div>
         <div id="starManageList"></div>
       </div>
+
+      <div class="card">
+        <div class="card-hd"><h2>Fragebogen-Antworten verwalten</h2></div>
+        <div class="frow" style="align-items:flex-end;max-width:500px;margin-bottom:12px">
+          <div class="fg w">
+            <label for="delFqPlayerSel">Spieler</label>
+            <select id="delFqPlayerSel"><option value="">— Spieler wählen —</option></select>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="loadFqBtn">Laden</button>
+        </div>
+        <div id="fqManageList"></div>
+      </div>
     </div>
   </div>
 </div><!-- /shell -->
@@ -454,6 +569,21 @@ window._DB = {
   },
   async loadStarHistory(pid){
     const {data}=await _SB.from('star_profiles').select('id,profile_date,version,saved_by,saved_at,data')
+      .eq('player_id',pid).order('saved_at',{ascending:false});
+    return data||[];
+  },
+  async saveFragebogen(pid, data){
+    const {data:ex}=await _SB.from('fragebogen_responses').select('version')
+      .eq('player_id',pid).order('version',{ascending:false}).limit(1);
+    const version=(ex&&ex.length)?ex[0].version+1:1;
+    const {data:row,error}=await _SB.from('fragebogen_responses').insert({
+      player_id:pid, data, version, saved_at:new Date().toISOString()
+    }).select('id');
+    if(error) throw error;
+    return {version, id:row&&row[0]?row[0].id:null};
+  },
+  async loadFragebogenHistory(pid){
+    const {data}=await _SB.from('fragebogen_responses').select('id,version,saved_at,data')
       .eq('player_id',pid).order('saved_at',{ascending:false});
     return data||[];
   }
@@ -1791,6 +1921,7 @@ function _activateCoach(){
   window._renderPlayerList&&window._renderPlayerList();
   _refreshManualSel();
   _populateDelSelects&&_populateDelSelects();
+  _fqPopulateSelect&&_fqPopulateSelect();
   refreshAllViews();
   const sps = document.getElementById('starPlayerSelect');
   if(sps && sps.options.length <= 1) _baseRefreshPS();
@@ -1817,6 +1948,7 @@ async function _loginPlayer(pid,name){
   document.getElementById('modeLabel').textContent=name;
   document.getElementById('modeDot').classList.remove('coach');
   if(window.HCIPlayerCodes) window.HCIPlayerCodes.loginAsPlayer(pid);
+  setTimeout(()=>{ _fqPopulateSelect&&_fqPopulateSelect(); if(window._pid) _fqInit&&_fqInit(window._pid); }, 400);
   // Coach-only fields: show as read-only
   document.querySelectorAll('[data-coach-only]').forEach(el=>{
     el.style.display='';
@@ -1943,6 +2075,7 @@ document.getElementById('addPlayerBtn').addEventListener('click',async()=>{
     document.getElementById('newPlayerEmail').value='';
     refreshAllViews(); window._renderPlayerList(); _refreshManualSel();
     _populateDelSelects&&_populateDelSelects();
+  _fqPopulateSelect&&_fqPopulateSelect();
     alert(name+' hinzugefügt.');
   }catch(e){alert('Fehler: '+e.message);}
 });
@@ -1998,12 +2131,12 @@ document.getElementById('filterName').addEventListener('input',()=>window._rende
 document.getElementById('filterTeamPL').addEventListener('change',()=>window._renderPlayerList&&window._renderPlayerList());
 
 // Export/import
-document.getElementById('exportProfileBtn').addEventListener('click',()=>{
+document.getElementById('exportProfileBtn')?.addEventListener('click',()=>{
   const pid=document.getElementById('starPlayerSelect')?.value||document.getElementById('viewModePlayer')?.value;
   if(!pid){alert('Bitte Spieler auswählen.');return;}
   exportPlayerProfileJSON(pid);
 });
-document.getElementById('importProfileInput').addEventListener('change',ev=>{
+document.getElementById('importProfileInput')?.addEventListener('change',ev=>{
   const f=ev.target.files[0]; if(f) importPlayerProfileJSONFile(f,{showConflictsToCoach:true});
 });
 
@@ -2176,8 +2309,10 @@ function _populateDelSelects(){
     players.map(p=>`<option value="${p.id}">${p.name} (${p.team})</option>`).join('');
   const s1 = document.getElementById('delTestPlayerSel');
   const s2 = document.getElementById('delStarPlayerSel');
+  const s3 = document.getElementById('delFqPlayerSel');
   if(s1) s1.innerHTML = opts;
   if(s2) s2.innerHTML = opts;
+  if(s3) s3.innerHTML = opts;
 }
 
 function _renderTestManageList(pid){
@@ -2319,6 +2454,224 @@ document.getElementById('loadStarProfilesBtn')?.addEventListener('click',()=>{
 
 // Populate selects when trainer activates
 const _origActivateCoach = _activateCoach;
+
+/* ══════════════════════════════════
+   FRAGEBOGEN
+══════════════════════════════════ */
+const FQ_QUESTIONS = [{"id": "ziel_mannschaft", "label": "Ziel mit der Mannschaft?"}, {"id": "rolle_team", "label": "Rolle im Team?"}, {"id": "traeume", "label": "Träume?"}, {"id": "liga_ziel_junioren", "label": "Zusätzliche Liga Ziel zu der Junioren Saison"}, {"id": "liga_ziel_nach", "label": "Liga Ziel nach den Junioren"}, {"id": "beruf", "label": "Beruf?"}, {"id": "hobbys", "label": "Hobbys neben Eishockey?"}, {"id": "abwesenheiten", "label": "Geplante Abwesenheiten (Ferien, Arbeit, Schule usw.)? Wann?"}, {"id": "militaer", "label": "Militär? Wenn ja Wann?"}, {"id": "fragen_coaches", "label": "Fragen an die Coaches?"}, {"id": "position_spiele", "label": "Position die ich spiele"}, {"id": "position_koennte", "label": "Position die ich auch spielen könnte?"}, {"id": "medizin", "label": "Medizinische Info für den Coach?"}];
+let _fqActiveIdx = 0;
+let _fqCurrentPid = null;
+
+function _fqPopulateSelect(){
+  const sel = document.getElementById('fqPlayerSelect');
+  if(!sel) return;
+  const cur = sel.value;
+  const players = Object.values(DATA.players).sort((a,b)=>a.name.localeCompare(b.name));
+  if(window._pid){
+    // Logged-in player: show only own entry
+    const p = DATA.players[window._pid];
+    sel.innerHTML = p ? `<option value="${window._pid}">${p.name}</option>` : '';
+    sel.value = window._pid; sel.disabled = true;
+    document.getElementById('fqLoginNote')&&(document.getElementById('fqLoginNote').style.display='block');
+  } else {
+    sel.innerHTML = '<option value="">— Spieler wählen —</option>' +
+      players.map(p=>`<option value="${p.id}" ${p.id===cur?'selected':''}>${p.name} (${p.team})</option>`).join('');
+    sel.disabled = false;
+    document.getElementById('fqLoginNote')&&(document.getElementById('fqLoginNote').style.display='none');
+  }
+}
+
+function _fqSetFormEditable(editable){
+  document.querySelectorAll('.fq-textarea').forEach(ta=>{
+    ta.disabled = !editable;
+  });
+  const btn = document.getElementById('fqSaveBtn');
+  if(btn) btn.style.display = editable ? '' : 'none';
+}
+
+function _fqLoadForm(data){
+  FQ_QUESTIONS.forEach(q=>{
+    const el = document.getElementById('fq_'+q.id);
+    if(el) el.value = (data&&data[q.id]) ? data[q.id] : '';
+  });
+}
+
+function _fqCollectForm(){
+  const obj = {};
+  FQ_QUESTIONS.forEach(q=>{
+    const el = document.getElementById('fq_'+q.id);
+    if(el) obj[q.id] = el.value.trim()||null;
+  });
+  return obj;
+}
+
+function _fqRenderSummary(hist){
+  const container = document.getElementById('fqSummary');
+  if(!container) return;
+  if(!hist){ container.innerHTML=''; return; }
+  const d = new Date(hist.saved_at);
+  const dateStr = d.toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const data = hist.data||{};
+  const answered = FQ_QUESTIONS.filter(q=>data[q.id]);
+  let out = `<div class="fq-summary-card">
+    <h3>Zusammenfassung — ${dateStr} (v${hist.version})</h3>`;
+  if(!answered.length){
+    out += '<p class="info">Keine Antworten in diesem Eintrag.</p>';
+  } else {
+    answered.forEach(q=>{
+      out += `<div class="fq-summary-row">
+        <div class="fq-summary-q">${q.label}</div>
+        <div class="fq-summary-a">${data[q.id]}</div>
+      </div>`;
+    });
+  }
+  out += '</div>';
+  container.innerHTML = out;
+}
+
+async function _fqLoadHistory(pid){
+  const wrap = document.getElementById('fqHistoryWrap');
+  const bar = document.getElementById('fqHistoryBar');
+  if(!wrap||!bar) return;
+  _fqHistoryCache = await window._DB.loadFragebogenHistory(pid);
+  if(!_fqHistoryCache.length){
+    wrap.classList.add('hidden');
+    _fqLoadForm({});
+    _fqRenderSummary(null);
+    return;
+  }
+  wrap.classList.remove('hidden');
+  bar.innerHTML = _fqHistoryCache.map((h,i)=>{
+    const d = new Date(h.saved_at);
+    const label = d.toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'2-digit'});
+    return `<button class="star-hist-btn${i===0?' active':''}" data-idx="${i}">${label} v${h.version}</button>`;
+  }).join('');
+  bar.querySelectorAll('.star-hist-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      _fqActiveIdx = parseInt(btn.dataset.idx);
+      bar.querySelectorAll('.star-hist-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const hist = _fqHistoryCache[_fqActiveIdx];
+      _fqLoadForm(hist.data||{});
+      _fqRenderSummary(hist);
+    });
+  });
+  // Load latest
+  _fqActiveIdx = 0;
+  _fqLoadForm(_fqHistoryCache[0].data||{});
+  _fqRenderSummary(_fqHistoryCache[0]);
+}
+
+async function _fqInit(pid){
+  if(!pid){
+    document.getElementById('fqHistoryWrap')?.classList.add('hidden');
+    _fqLoadForm({});
+    _fqRenderSummary(null);
+    return;
+  }
+  _fqCurrentPid = pid;
+  // Editable: player viewing own, or coach
+  const isOwn = window._pid === pid;
+  const isCoach = localStorage.getItem('hci_coach_mode')==='1';
+  _fqSetFormEditable(isOwn || isCoach);
+  await _fqLoadHistory(pid);
+}
+
+// Player select change
+document.getElementById('fqPlayerSelect')?.addEventListener('change', e=>{
+  _fqInit(e.target.value);
+});
+
+// Save button
+document.getElementById('fqSaveBtn')?.addEventListener('click', async()=>{
+  const pid = document.getElementById('fqPlayerSelect')?.value;
+  if(!pid){ alert('Bitte Spieler wählen.'); return; }
+  const data = _fqCollectForm();
+  const hasData = Object.values(data).some(v=>v);
+  if(!hasData){ alert('Bitte mindestens eine Antwort eingeben.'); return; }
+  try{
+    const btn = document.getElementById('fqSaveBtn');
+    btn.disabled = true; btn.textContent = 'Speichern...';
+    await window._DB.saveFragebogen(pid, data);
+    await _fqLoadHistory(pid);
+    btn.disabled = false; btn.textContent = 'Speichern';
+    alert('Gespeichert!');
+  } catch(e){
+    alert('Fehler: '+e.message);
+    document.getElementById('fqSaveBtn').disabled=false;
+    document.getElementById('fqSaveBtn').textContent='Speichern';
+  }
+});
+
+// Auto-init if player logged in
+function _fqRefreshForPlayer(){
+  _fqPopulateSelect();
+  if(window._pid) _fqInit(window._pid);
+}
+
+/* Fragebogen delete management */
+async function _renderFqManageList(pid){
+  const container = document.getElementById('fqManageList');
+  if(!container) return;
+  container.innerHTML = '<p class="info">Lade...</p>';
+  const responses = await window._DB.loadFragebogenHistory(pid);
+  if(!responses.length){
+    container.innerHTML = '<p class="info">Keine Antworten gefunden.</p>';
+    return;
+  }
+  container.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--muted);cursor:pointer;font-family:'Barlow',sans-serif;text-transform:none;letter-spacing:0">
+        <input type="checkbox" id="selectAllFq" style="width:auto"/> Alle auswählen
+      </label>
+      <button class="btn btn-danger btn-sm" id="deleteSelectedFq">Ausgewählte löschen</button>
+    </div>
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th style="width:32px"></th>
+        <th>Gespeichert am</th><th>Version</th><th>Antworten</th>
+      </tr></thead>
+      <tbody>
+        ${responses.map(r=>{
+          const d = new Date(r.saved_at);
+          const dateStr = d.toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+          const count = Object.values(r.data||{}).filter(Boolean).length;
+          return `<tr>
+            <td><input type="checkbox" class="fq-chk" data-id="${r.id}" style="width:auto"/></td>
+            <td>${dateStr}</td>
+            <td>v${r.version}</td>
+            <td>${count} Antwort(en)</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    </div>`;
+
+  document.getElementById('selectAllFq').addEventListener('change', e=>{
+    container.querySelectorAll('.fq-chk').forEach(c=>c.checked=e.target.checked);
+  });
+
+  document.getElementById('deleteSelectedFq').addEventListener('click', async()=>{
+    const checked = [...container.querySelectorAll('.fq-chk:checked')];
+    if(!checked.length){ alert('Bitte mindestens einen Eintrag auswählen.'); return; }
+    const ids = checked.map(c=>c.dataset.id).filter(Boolean);
+    if(!confirm(`${checked.length} Fragebogen-Antwort(en) wirklich löschen?`)) return;
+    for(const id of ids){
+      const {error} = await _SB.from('fragebogen_responses').delete().eq('id', id);
+      if(error){ alert('Fehler: '+error.message); return; }
+    }
+    await _renderFqManageList(pid);
+    // Refresh fragebogen if open
+    if(_fqCurrentPid === pid) await _fqLoadHistory(pid);
+  });
+}
+
+document.getElementById('loadFqBtn')?.addEventListener('click',()=>{
+  const pid = document.getElementById('delFqPlayerSel').value;
+  if(!pid){ alert('Bitte Spieler wählen.'); return; }
+  _renderFqManageList(pid);
+});
 </script>
 </body>
 </html>
