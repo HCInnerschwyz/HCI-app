@@ -2142,16 +2142,22 @@ document.getElementById('importProfileInput')?.addEventListener('change',ev=>{
    AUTH STATE CHANGE (magic link)
  */
 _SB.auth.onAuthStateChange(async(event,session)=>{
-  if((event==='SIGNED_IN'||event==='TOKEN_REFRESHED')&&session?.user){
-    const email=session.user.email;
+  // SIGNED_IN fires when magic link is clicked
+  // TOKEN_REFRESHED fires on page reload with existing session
+  if(event==='SIGNED_IN' && session?.user){
+    const email = session.user.email;
+    // Reload data to make sure we have latest player list
     await _loadDB();
-    const player=Object.values(DATA.players).find(p=>p.email&&p.email.toLowerCase()===email.toLowerCase());
+    const player = Object.values(DATA.players).find(
+      p=>p.email && p.email.toLowerCase()===email.toLowerCase()
+    );
     if(player){
-      await _loginPlayer(player.id,player.name);
-    }else{
+      await _loginPlayer(player.id, player.name);
+    } else {
+      _setShell(false);
       document.getElementById('startModal').style.display='flex';
-      const msg=document.getElementById('startPlayerMsg');
-      if(msg){msg.className='info error';msg.textContent='Spieler nicht gefunden - Trainer kontaktieren.';}
+      const msg = document.getElementById('startPlayerMsg');
+      if(msg){ msg.className='info error'; msg.textContent='E-Mail nicht registriert. Bitte Trainer kontaktieren.'; }
     }
   }
 });
@@ -2160,22 +2166,36 @@ _SB.auth.onAuthStateChange(async(event,session)=>{
    INIT
  */
 (async()=>{
+  // Load data first
   await _loadDB();
-  const coach=localStorage.getItem('hci_coach_mode')==='1';
-  if(coach){
+
+  // Coach session from localStorage
+  if(localStorage.getItem('hci_coach_mode')==='1'){
     _activateCoach();
     return;
   }
-  let {data:{session}}=await _SB.auth.getSession();
+
+  // Check for existing Supabase session
+  // This also handles magic link token in URL hash automatically
+  const {data:{session}} = await _SB.auth.getSession();
   if(session?.user){
-    const email=session.user.email;
-    const player=Object.values(DATA.players).find(p=>p.email&&p.email.toLowerCase()===email.toLowerCase());
+    const email = session.user.email;
+    const player = Object.values(DATA.players).find(
+      p=>p.email && p.email.toLowerCase()===email.toLowerCase()
+    );
     if(player){
-      await _loginPlayer(player.id,player.name);
+      await _loginPlayer(player.id, player.name);
       return;
     }
+    // Logged in to Supabase but email not in players list
+    _setShell(false);
+    document.getElementById('startModal').style.display='flex';
+    const msg = document.getElementById('startPlayerMsg');
+    if(msg){ msg.className='info error'; msg.textContent='E-Mail nicht registriert. Bitte Trainer kontaktieren.'; }
+    return;
   }
-  // No session
+
+  // No session — show login modal
   _setShell(false);
   document.getElementById('startModal').style.display='flex';
 })();
