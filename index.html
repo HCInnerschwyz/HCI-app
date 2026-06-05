@@ -1571,13 +1571,47 @@ window._appRefresh = function(){
 let _starHistoryCache=[];
 let _activeHistoryIdx=0;
 
+
+/* Migrate existing localStorage STAR profiles to Supabase */
+async function _migrateLocalStorageStarToSupabase(pid){
+  try{
+    const INDEX_KEY = 'star_profiles_index';
+    const index = JSON.parse(localStorage.getItem(INDEX_KEY)||'{}');
+    const entries = index[pid];
+    if(!entries||!entries.length) return false;
+    let migrated = 0;
+    for(const entry of entries){
+      const raw = localStorage.getItem(entry.storageKey);
+      if(!raw) continue;
+      const payload = JSON.parse(raw);
+      const profileData = payload.data || payload;
+      const profileDate = entry.profileDate || profileData.profileDate || new Date().toISOString().slice(0,10);
+      const savedBy = payload.meta?.savedBy || 'web';
+      await window._DB.saveStarProfile(pid, profileDate, profileData, savedBy);
+      migrated++;
+    }
+    if(migrated) console.log(`Migrated ${migrated} STAR profile(s) for ${pid} to Supabase`);
+    return migrated > 0;
+  }catch(e){
+    console.error('Migration error:', e);
+    return false;
+  }
+}
+
 async function _loadStarHistory(pid){
   if(!pid) return;
   const wrap=document.getElementById('starHistoryWrap');
   const bar=document.getElementById('starHistoryBar');
   if(!wrap||!bar) return;
   _starHistoryCache=await window._DB.loadStarHistory(pid);
-  if(!_starHistoryCache.length){ wrap.classList.add('hidden'); return; }
+
+  // If Supabase has no history, check localStorage and migrate
+  if(!_starHistoryCache.length){
+    const migrated = await _migrateLocalStorageStarToSupabase(pid);
+    if(migrated) _starHistoryCache=await window._DB.loadStarHistory(pid);
+  }
+
+  if(!_starHistoryCache.length){ wrap.classList.add('hidden'); _renderStarSummary(null,null); return; }
   wrap.classList.remove('hidden');
   bar.innerHTML=_starHistoryCache.map((h,i)=>{
     const d=new Date(h.saved_at);
