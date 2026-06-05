@@ -187,6 +187,13 @@ tr:hover td{background:var(--ice)}
 .fq-summary-q{font-family:'Bebas Neue',sans-serif;font-size:.72rem;letter-spacing:.1em;
   color:var(--muted);text-transform:uppercase;margin-bottom:4px}
 .fq-summary-a{font-size:.86rem;color:var(--ink2);line-height:1.6;white-space:pre-wrap}
+.coach-comment-panel{background:var(--ice);border:1px solid var(--border);border-radius:var(--r2);
+  padding:16px;margin-bottom:14px;border-left:4px solid var(--orange)}
+.coach-comment-panel h3{font-family:'Bebas Neue',sans-serif;font-size:.88rem;letter-spacing:.14em;
+  color:var(--ink);text-transform:uppercase;margin-bottom:12px}
+.ccp-area{margin-bottom:12px}
+.ccp-area label{font-family:'Bebas Neue',sans-serif;font-size:.7rem;letter-spacing:.1em;
+  color:var(--muted);text-transform:uppercase;display:block;margin-bottom:4px}
 .sync-banner{position:fixed;bottom:20px;right:20px;background:var(--navy);color:#fff;padding:9px 18px;border-radius:10px;font-size:.74rem;font-family:'Barlow',sans-serif;z-index:9999;display:none;align-items:center;gap:9px;box-shadow:0 4px 20px rgba(0,0,0,.3)}
 .sync-dot{width:7px;height:7px;border-radius:50%;background:var(--orange);flex-shrink:0;animation:sdp 1s infinite}
 @keyframes sdp{0%,100%{opacity:1}50%{opacity:.2}}
@@ -280,7 +287,23 @@ input[type=checkbox]{
     <!-- STAR history bar -->
     <div id="starHistoryWrap" class="hidden">
       <div class="sec">Gespeicherte Profile</div>
-      <div class="star-history-bar" id="starHistoryBar"></div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div class="star-history-bar" id="starHistoryBar" style="flex:1"></div>
+        <div id="coachCommentBtn" class="hidden">
+          <button class="btn btn-primary btn-sm" id="addCoachCommentBtn">Kommentare hinzufügen</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Coach comment panel (shown when trainer clicks Kommentare hinzufügen) -->
+    <div id="coachCommentPanel" class="hidden coach-comment-panel">
+      <h3>Trainerkommentare hinzufügen</h3>
+      <p class="info" style="margin-bottom:12px">Kommentare werden zum bestehenden Profil hinzugefügt und gespeichert.</p>
+      <div id="coachCommentFields"></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-primary btn-sm" id="saveCoachCommentsBtn">Kommentare speichern</button>
+        <button class="btn btn-ghost btn-sm" id="cancelCoachCommentsBtn">Abbrechen</button>
+      </div>
     </div>
 
     <div class="sec">STAR Profil - Selbstreflexion &amp; SMART Ziele</div>
@@ -499,12 +522,17 @@ input[type=checkbox]{
     <div class="modal-cards">
       <div class="modal-card">
         <h3>Spieler-Login</h3>
-        <p>Gib deine E-Mail-Adresse ein. Du erhältst einen Anmeldelink.</p>
+        <p>Gib deine E-Mail-Adresse ein. Du erhältst einen Anmeldelink per E-Mail.</p>
         <div class="modal-row">
           <input id="startEmail" type="email" placeholder="deine@email.com" autocomplete="email"/>
           <button class="btn btn-primary btn-sm" id="startPlayerBtn">Senden</button>
         </div>
         <div class="modal-msg" id="startPlayerMsg"></div>
+        <p class="info" style="margin-top:10px;padding:8px;background:var(--ice2);border-radius:var(--r);line-height:1.6">
+          <strong>iPhone:</strong> Öffne den Link aus der E-Mail in <strong>Safari</strong>,
+          kopiere dann die URL und öffne sie erneut in Safari — oder füge die App zuerst
+          zum Startbildschirm hinzu und melde dich dort an.
+        </p>
       </div>
       <div class="modal-card">
         <h3>Trainer-Login</h3>
@@ -564,6 +592,18 @@ window._DB = {
       saved_by:savedBy||'web',version,saved_at:new Date().toISOString()
     });
     return version;
+  },
+  async updateStarProfileWithCoachComments(id, existingData, coachComments){
+    // Merge coach comments into existing profile data and save as new version
+    const merged = {...existingData};
+    Object.keys(coachComments).forEach(k=>{ if(coachComments[k]) merged[k]=coachComments[k]; });
+    const {error}=await _SB.from('star_profiles').update({
+      data: merged,
+      saved_by: 'coach',
+      saved_at: new Date().toISOString()
+    }).eq('id', id);
+    if(error) throw error;
+    return merged;
   },
   async loadStarHistory(pid){
     const {data}=await _SB.from('star_profiles').select('id,profile_date,version,saved_by,saved_at,data')
@@ -1787,8 +1827,11 @@ function _renderHistoryProfile(hist){
   const profileData = hist.data || {};
   const pid = profileData.playerId || hist.player_id || '';
   if(window.STARForm.loadProfileToUI) window.STARForm.loadProfileToUI(pid, hist.profile_date, profileData, older?.data||null);
-  // Render summary below STAR form
   _renderStarSummary(hist, older||null);
+  // Show coach comment button for coaches
+  _showCoachCommentBtn(true);
+  // Hide comment panel when switching profiles
+  document.getElementById('coachCommentPanel')?.classList.add('hidden');
 }
 
 /* 
@@ -2169,14 +2212,13 @@ _SB.auth.onAuthStateChange(async(event,session)=>{
   // Load data first
   await _loadDB();
 
-  // Coach session from localStorage
+  // 1) Coach session from localStorage
   if(localStorage.getItem('hci_coach_mode')==='1'){
     _activateCoach();
     return;
   }
 
-  // Check for existing Supabase session
-  // This also handles magic link token in URL hash automatically
+  // 2) Check for existing Supabase session (covers magic link return AND returning users)
   const {data:{session}} = await _SB.auth.getSession();
   if(session?.user){
     const email = session.user.email;
@@ -2184,10 +2226,12 @@ _SB.auth.onAuthStateChange(async(event,session)=>{
       p=>p.email && p.email.toLowerCase()===email.toLowerCase()
     );
     if(player){
+      // Valid session + known player — log in silently, no modal
       await _loginPlayer(player.id, player.name);
       return;
     }
-    // Logged in to Supabase but email not in players list
+    // Session exists but email not registered — sign out and show modal
+    await _SB.auth.signOut();
     _setShell(false);
     document.getElementById('startModal').style.display='flex';
     const msg = document.getElementById('startPlayerMsg');
@@ -2195,7 +2239,7 @@ _SB.auth.onAuthStateChange(async(event,session)=>{
     return;
   }
 
-  // No session — show login modal
+  // 3) No session — show login modal
   _setShell(false);
   document.getElementById('startModal').style.display='flex';
 })();
@@ -2689,6 +2733,88 @@ document.getElementById('loadFqBtn')?.addEventListener('click',()=>{
   const pid = document.getElementById('delFqPlayerSel').value;
   if(!pid){ alert('Bitte Spieler wählen.'); return; }
   _renderFqManageList(pid);
+});
+
+/* ══════════════════════════════════
+   COACH COMMENT ON EXISTING PROFILE
+══════════════════════════════════ */
+function _showCoachCommentBtn(show){
+  const isCoach = localStorage.getItem('hci_coach_mode')==='1';
+  const btn = document.getElementById('coachCommentBtn');
+  if(btn) btn.classList.toggle('hidden', !show || !isCoach);
+}
+
+function _buildCoachCommentFields(){
+  const panel = document.getElementById('coachCommentFields');
+  if(!panel || typeof STAR_ELEMENTS === 'undefined') return;
+  panel.innerHTML = STAR_ELEMENTS.map(area=>`
+    <div class="ccp-area">
+      <label>${area.title}</label>
+      <textarea class="fq-textarea" data-coach-field="${area.id}_coach_comment"
+        rows="2" placeholder="Trainerkommentar ${area.title}..."
+        style="margin-bottom:0">${_coachCommentDraft[area.id+'_coach_comment']||''}</textarea>
+    </div>`).join('');
+}
+
+let _coachCommentDraft = {};
+let _coachCommentTargetId = null; // DB id of profile being commented on
+
+document.getElementById('addCoachCommentBtn')?.addEventListener('click',()=>{
+  const hist = _starHistoryCache[_activeHistoryIdx];
+  if(!hist){ alert('Kein Profil ausgewählt.'); return; }
+  _coachCommentTargetId = hist.id;
+  _coachCommentDraft = {};
+  // Pre-fill with existing coach comments from profile
+  const data = hist.data||{};
+  if(typeof STAR_ELEMENTS !== 'undefined'){
+    STAR_ELEMENTS.forEach(area=>{
+      const key = area.id+'_coach_comment';
+      if(data[key]) _coachCommentDraft[key] = data[key];
+    });
+  }
+  _buildCoachCommentFields();
+  document.getElementById('coachCommentPanel').classList.remove('hidden');
+  document.getElementById('coachCommentPanel').scrollIntoView({behavior:'smooth',block:'start'});
+});
+
+document.getElementById('cancelCoachCommentsBtn')?.addEventListener('click',()=>{
+  document.getElementById('coachCommentPanel').classList.add('hidden');
+  _coachCommentTargetId = null;
+});
+
+document.getElementById('saveCoachCommentsBtn')?.addEventListener('click', async()=>{
+  if(!_coachCommentTargetId){ alert('Kein Profil ausgewählt.'); return; }
+  const hist = _starHistoryCache.find(h=>h.id===_coachCommentTargetId);
+  if(!hist){ alert('Profil nicht gefunden.'); return; }
+
+  // Collect comments from fields
+  const comments = {};
+  document.querySelectorAll('[data-coach-field]').forEach(el=>{
+    const key = el.dataset.coachField;
+    if(el.value.trim()) comments[key] = el.value.trim();
+  });
+
+  const hasComments = Object.keys(comments).length > 0;
+  if(!hasComments){ alert('Bitte mindestens einen Kommentar eingeben.'); return; }
+
+  const btn = document.getElementById('saveCoachCommentsBtn');
+  btn.disabled=true; btn.textContent='Speichern...';
+
+  try{
+    await window._DB.updateStarProfileWithCoachComments(
+      _coachCommentTargetId, hist.data||{}, comments
+    );
+    document.getElementById('coachCommentPanel').classList.add('hidden');
+    _coachCommentTargetId = null;
+    // Reload history to show updated profile
+    const pid = document.getElementById('starPlayerSelect')?.value;
+    if(pid) await _loadStarHistory(pid);
+    alert('Kommentare gespeichert.');
+  }catch(e){
+    alert('Fehler: '+e.message);
+  } finally {
+    btn.disabled=false; btn.textContent='Kommentare speichern';
+  }
 });
 </script>
 </body>
