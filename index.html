@@ -660,6 +660,7 @@ async function _loadDB(){
     const codes={};
     players.forEach(p=>{ if(p.code) codes[p.id]={code:p.code,createdAt:p.created_at,expiresAt:p.code_expires_at}; });
     localStorage.setItem('hci_player_codes',JSON.stringify(codes));
+    console.log('[init] Data loaded, players:', Object.keys(DATA.players).length);
     refreshAllViews();
     if(window._renderPlayerList) window._renderPlayerList();
     if(window._refreshManualSel) _refreshManualSel();
@@ -1996,6 +1997,7 @@ function _deactivateCoach(){
 }
 
 async function _loginPlayer(pid,name){
+  console.log('[login] Logging in:', name, pid);
   window._pid=pid;
   _setShell(true);
   document.getElementById('startModal').style.display='none';
@@ -2262,22 +2264,25 @@ _SB.auth.onAuthStateChange(async(event,session)=>{
 
   // 3) Check existing Supabase session
   try {
+    console.log('[init] Checking session...');
     const {data:{session}} = await _SB.auth.getSession();
+    console.log('[init] Session:', session ? 'EXISTS for ' + session.user?.email : 'NULL');
     if(session?.user){
       const email = session.user.email;
       const player = Object.values(DATA.players).find(
         p=>p.email && p.email.toLowerCase()===email.toLowerCase()
       );
+      console.log('[init] Player match:', player ? player.name : 'NOT FOUND');
       if(player){
         await _loginPlayer(player.id, player.name);
         return;
       }
-      // Session exists but not in players list — sign out silently
       await _SB.auth.signOut();
     }
-  } catch(e){ console.error('Session check failed:', e); }
+  } catch(e){ console.error('[init] Session check failed:', e); }
 
   // 4) No session — show modal
+  console.log('[init] Showing modal');
   _setShell(false);
   document.getElementById('startModal').style.display='flex';
 })();
