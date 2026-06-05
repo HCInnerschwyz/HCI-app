@@ -549,7 +549,7 @@ input[type=checkbox]{
       </div>
     </div>
     <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      <div id="resumeSessionArea" class="hidden">
+      <div id="resumeSessionArea" class="hidden" style="align-items:center;gap:8px">
         <button class="btn btn-primary btn-sm" id="resumeSessionBtn">Mit bestehendem Konto anmelden</button>
         <span id="resumeSessionEmail" class="info" style="margin-left:8px"></span>
       </div>
@@ -2211,6 +2211,10 @@ _SB.auth.onAuthStateChange(async(event,session)=>{
     const player = Object.values(DATA.players).find(
       p=>p.email && p.email.toLowerCase()===email.toLowerCase()
     );
+    // Remove loading indicator if present
+    const loader = document.getElementById('authLoading');
+    if(loader) loader.remove();
+
     if(player){
       await _loginPlayer(player.id, player.name);
     } else {
@@ -2237,7 +2241,30 @@ _SB.auth.onAuthStateChange(async(event,session)=>{
     return;
   }
 
-  // 2) Check for existing Supabase session (covers magic link return AND returning users)
+  // 2) If URL contains access_token (magic link), let onAuthStateChange handle it
+  // Supabase v2 processes the hash fragment and fires SIGNED_IN automatically
+  const hash = window.location.hash;
+  if(hash && (hash.includes('access_token') || hash.includes('type=magiclink') || hash.includes('type=signup'))){
+    console.log('Magic link detected in URL — waiting for onAuthStateChange...');
+    // Show loading state, onAuthStateChange will take over
+    _setShell(false);
+    document.getElementById('startModal').style.display='none';
+    // Show a simple loading indicator
+    document.body.insertAdjacentHTML('beforeend',
+      '<div id="authLoading" style="position:fixed;inset:0;background:rgba(10,22,40,.85);display:flex;align-items:center;justify-content:center;z-index:99999;color:#fff;font-family:Barlow,sans-serif;font-size:1rem">Anmeldung wird verarbeitet...</div>'
+    );
+    // Timeout fallback in case onAuthStateChange never fires
+    setTimeout(()=>{
+      const loader = document.getElementById('authLoading');
+      if(loader) loader.remove();
+      _setShell(false);
+      document.getElementById('startModal').style.display='flex';
+      _checkResumeSession();
+    }, 5000);
+    return;
+  }
+
+  // 3) Check for existing Supabase session
   const {data:{session}} = await _SB.auth.getSession();
   if(session?.user){
     const email = session.user.email;
@@ -2245,20 +2272,14 @@ _SB.auth.onAuthStateChange(async(event,session)=>{
       p=>p.email && p.email.toLowerCase()===email.toLowerCase()
     );
     if(player){
-      // Valid session + known player — log in silently, no modal
       await _loginPlayer(player.id, player.name);
       return;
     }
-    // Session exists but email not registered — sign out and show modal
+    // Session exists but email not in players
     await _SB.auth.signOut();
-    _setShell(false);
-    document.getElementById('startModal').style.display='flex';
-    const msg = document.getElementById('startPlayerMsg');
-    if(msg){ msg.className='info error'; msg.textContent='E-Mail nicht registriert. Bitte Trainer kontaktieren.'; }
-    return;
   }
 
-  // 3) No session — show login modal
+  // 4) No session — show login modal
   _setShell(false);
   document.getElementById('startModal').style.display='flex';
   _checkResumeSession();
@@ -2878,21 +2899,41 @@ async function _checkResumeSession(){
   const {data:{session}} = await _SB.auth.getSession();
   if(!session?.user) return;
   const email = session.user.email;
-  const player = Object.values(DATA.players).find(
+
+  // Try to find matching player
+  let player = Object.values(DATA.players).find(
     p=>p.email && p.email.toLowerCase()===email.toLowerCase()
   );
-  if(!player) return;
-  // Show resume button
+
   const area = document.getElementById('resumeSessionArea');
   const emailEl = document.getElementById('resumeSessionEmail');
-  if(area){ area.classList.remove('hidden'); area.style.display=''; }
-  if(emailEl) emailEl.textContent = player.name;
-  // Remove old listeners before adding new one
+  if(!area) return;
+
+  // Show resume button regardless — even if player email not yet set
+  area.classList.remove('hidden');
+  area.style.display = 'flex';
+  if(emailEl) emailEl.textContent = player ? player.name : email;
+
+  // Wire button
   const oldBtn = document.getElementById('resumeSessionBtn');
+  if(!oldBtn) return;
   const newBtn = oldBtn.cloneNode(true);
   oldBtn.parentNode.replaceChild(newBtn, oldBtn);
   newBtn.addEventListener('click', async()=>{
-    await _loginPlayer(player.id, player.name);
+    if(player){
+      await _loginPlayer(player.id, player.name);
+    } else {
+      await _loadDB();
+      player = Object.values(DATA.players).find(
+        p=>p.email && p.email.toLowerCase()===email.toLowerCase()
+      );
+      if(player){
+        await _loginPlayer(player.id, player.name);
+      } else {
+        const msg = document.getElementById('startPlayerMsg');
+        if(msg){ msg.className='info error'; msg.textContent='E-Mail nicht registriert. Bitte Trainer kontaktieren.'; }
+      }
+    }
   });
 }
 
