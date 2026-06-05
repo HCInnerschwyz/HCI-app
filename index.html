@@ -2188,17 +2188,26 @@ function _renderTestManageList(pid){
     container.innerHTML = '<p class="info">Keine Testresultate gefunden.</p>';
     return;
   }
-  // Group tests by season+type+date for display
+  // Sort by season desc — use stable dbId as unique key, not array index
   const tests = [...p.tests].sort((a,b)=>(b.season||'').localeCompare(a.season||''));
-  container.innerHTML = `<div class="tbl-wrap">
+
+  container.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--muted);cursor:pointer;font-family:'Barlow',sans-serif;text-transform:none;letter-spacing:0">
+        <input type="checkbox" id="selectAllTests" style="width:auto"/> Alle auswählen
+      </label>
+      <button class="btn btn-danger btn-sm" id="deleteSelectedTests">Ausgewählte löschen</button>
+    </div>
+    <div class="tbl-wrap">
     <table>
       <thead><tr>
+        <th style="width:32px"></th>
         <th>Saison</th><th>Kategorie</th><th>Yo-Yo</th>
         <th>Rumpfstabi</th><th>Liegestütz</th><th>Klimmzüge</th><th>5er Hupf</th>
-        <th></th>
       </tr></thead>
       <tbody>
-        ${tests.map((t,i)=>`<tr>
+        ${tests.map(t=>`<tr>
+          <td><input type="checkbox" class="test-chk" data-dbid="${t.dbId||''}" style="width:auto"/></td>
           <td>${t.season||'—'}</td>
           <td>${t.type||'—'}</td>
           <td>${t.yoYo??'—'}</td>
@@ -2206,28 +2215,31 @@ function _renderTestManageList(pid){
           <td>${t.pushups??'—'}</td>
           <td>${t.pullups??'—'}</td>
           <td>${t.hupf!=null?Number(t.hupf).toFixed(2):'—'}</td>
-          <td><button class="btn btn-danger btn-xs" data-idx="${i}" data-dbid="${t.dbId||''}">Löschen</button></td>
         </tr>`).join('')}
       </tbody>
     </table>
-  </div>`;
+    </div>`;
 
-  container.querySelectorAll('[data-idx]').forEach(btn=>{
-    btn.addEventListener('click', async()=>{
-      const idx = parseInt(btn.dataset.idx);
-      const dbId = btn.dataset.dbid;
-      const t = p.tests[idx];
-      if(!confirm(`Testresultat (${t.season} ${t.type}) wirklich löschen?`)) return;
-      // Delete from Supabase
-      if(dbId){
-        const {error} = await _SB.from('tests').delete().eq('id', dbId);
-        if(error){ alert('Fehler: '+error.message); return; }
-      }
-      // Remove from local DATA
-      p.tests.splice(idx, 1);
-      refreshAllViews();
-      _renderTestManageList(pid);
-    });
+  // Select all toggle
+  document.getElementById('selectAllTests').addEventListener('change', e=>{
+    container.querySelectorAll('.test-chk').forEach(c=>c.checked=e.target.checked);
+  });
+
+  // Delete selected
+  document.getElementById('deleteSelectedTests').addEventListener('click', async()=>{
+    const checked = [...container.querySelectorAll('.test-chk:checked')];
+    if(!checked.length){ alert('Bitte mindestens einen Eintrag auswählen.'); return; }
+    const dbIds = checked.map(c=>c.dataset.dbid).filter(Boolean);
+    if(!confirm(`${checked.length} Testresultat(e) wirklich löschen?`)) return;
+    // Delete from Supabase by dbId (safe — never deletes wrong row)
+    for(const dbId of dbIds){
+      const {error} = await _SB.from('tests').delete().eq('id', dbId);
+      if(error){ alert('Fehler beim Löschen: '+error.message); return; }
+    }
+    // Remove from local DATA by dbId
+    p.tests = p.tests.filter(t=>!dbIds.includes(t.dbId));
+    refreshAllViews();
+    _renderTestManageList(pid);
   });
 }
 
@@ -2240,10 +2252,18 @@ async function _renderStarManageList(pid){
     container.innerHTML = '<p class="info">Keine STAR Profile gefunden.</p>';
     return;
   }
-  container.innerHTML = `<div class="tbl-wrap">
+  container.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--muted);cursor:pointer;font-family:'Barlow',sans-serif;text-transform:none;letter-spacing:0">
+        <input type="checkbox" id="selectAllStar" style="width:auto"/> Alle auswählen
+      </label>
+      <button class="btn btn-danger btn-sm" id="deleteSelectedStar">Ausgewählte löschen</button>
+    </div>
+    <div class="tbl-wrap">
     <table>
       <thead><tr>
-        <th>Datum</th><th>Profildatum</th><th>Version</th><th>Gespeichert von</th><th></th>
+        <th style="width:32px"></th>
+        <th>Gespeichert am</th><th>Profildatum</th><th>Version</th><th>Gespeichert von</th>
       </tr></thead>
       <tbody>
         ${profiles.map(pr=>{
@@ -2251,29 +2271,36 @@ async function _renderStarManageList(pid){
           const dateStr = d.toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
           const byStr = pr.saved_by==='coach'?'Trainer':'Spieler';
           return `<tr>
+            <td><input type="checkbox" class="star-chk" data-id="${pr.id}" style="width:auto"/></td>
             <td>${dateStr}</td>
             <td>${pr.profile_date||'—'}</td>
             <td>v${pr.version}</td>
             <td>${byStr}</td>
-            <td><button class="btn btn-danger btn-xs" data-id="${pr.id}">Löschen</button></td>
           </tr>`;
         }).join('')}
       </tbody>
     </table>
-  </div>`;
+    </div>`;
 
-  container.querySelectorAll('[data-id]').forEach(btn=>{
-    btn.addEventListener('click', async()=>{
-      const id = btn.dataset.id;
-      if(!confirm('Dieses STAR Profil wirklich löschen?')) return;
+  // Select all
+  document.getElementById('selectAllStar').addEventListener('change', e=>{
+    container.querySelectorAll('.star-chk').forEach(c=>c.checked=e.target.checked);
+  });
+
+  // Delete selected — uses UUID from DB, never wrong row
+  document.getElementById('deleteSelectedStar').addEventListener('click', async()=>{
+    const checked = [...container.querySelectorAll('.star-chk:checked')];
+    if(!checked.length){ alert('Bitte mindestens einen Eintrag auswählen.'); return; }
+    const ids = checked.map(c=>c.dataset.id).filter(Boolean);
+    if(!confirm(`${checked.length} STAR Profil(e) wirklich löschen?`)) return;
+    for(const id of ids){
       const {error} = await _SB.from('star_profiles').delete().eq('id', id);
-      if(error){ alert('Fehler: '+error.message); return; }
-      await _renderStarManageList(pid);
-      // Refresh history if this player is open in STAR tab
-      if(document.getElementById('starPlayerSelect')?.value === pid){
-        _loadStarHistory(pid);
-      }
-    });
+      if(error){ alert('Fehler beim Löschen: '+error.message); return; }
+    }
+    await _renderStarManageList(pid);
+    if(document.getElementById('starPlayerSelect')?.value === pid){
+      _loadStarHistory(pid);
+    }
   });
 }
 
