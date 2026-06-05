@@ -2070,7 +2070,7 @@ async function _sendOtp(email, msgEl, btnEl){
   // Send OTP via Supabase
   const {error} = await _SB.auth.signInWithOtp({
     email,
-    options: { shouldCreateUser: false }
+    options: { shouldCreateUser: true, data: {} }
   });
   if(error){
     if(msgEl){ msgEl.className='info error'; msgEl.textContent='Fehler: '+error.message; }
