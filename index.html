@@ -549,7 +549,7 @@ input[type=checkbox]{
       </div>
     </div>
     <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      <div id="resumeSessionArea" class="hidden" style="display:none">
+      <div id="resumeSessionArea" class="hidden">
         <button class="btn btn-primary btn-sm" id="resumeSessionBtn">Mit bestehendem Konto anmelden</button>
         <span id="resumeSessionEmail" class="info" style="margin-left:8px"></span>
       </div>
@@ -2201,9 +2201,10 @@ document.getElementById('importProfileInput')?.addEventListener('change',ev=>{
    AUTH STATE CHANGE (magic link)
  */
 _SB.auth.onAuthStateChange(async(event,session)=>{
-  // SIGNED_IN fires when magic link is clicked
-  // TOKEN_REFRESHED fires on page reload with existing session
-  if(event==='SIGNED_IN' && session?.user){
+  // SIGNED_IN: magic link clicked
+  // TOKEN_REFRESHED: existing session refreshed
+  // INITIAL_SESSION: page load with existing session (some Supabase versions)
+  if((event==='SIGNED_IN'||event==='TOKEN_REFRESHED') && session?.user){
     const email = session.user.email;
     // Reload data to make sure we have latest player list
     await _loadDB();
@@ -2213,10 +2214,12 @@ _SB.auth.onAuthStateChange(async(event,session)=>{
     if(player){
       await _loginPlayer(player.id, player.name);
     } else {
+      console.warn('Auth: email not found in players:', email);
       _setShell(false);
       document.getElementById('startModal').style.display='flex';
       const msg = document.getElementById('startPlayerMsg');
       if(msg){ msg.className='info error'; msg.textContent='E-Mail nicht registriert. Bitte Trainer kontaktieren.'; }
+      _checkResumeSession();
     }
   }
 });
@@ -2882,11 +2885,15 @@ async function _checkResumeSession(){
   // Show resume button
   const area = document.getElementById('resumeSessionArea');
   const emailEl = document.getElementById('resumeSessionEmail');
-  if(area) area.classList.remove('hidden');
+  if(area){ area.classList.remove('hidden'); area.style.display=''; }
   if(emailEl) emailEl.textContent = player.name;
-  document.getElementById('resumeSessionBtn')?.addEventListener('click', async()=>{
+  // Remove old listeners before adding new one
+  const oldBtn = document.getElementById('resumeSessionBtn');
+  const newBtn = oldBtn.cloneNode(true);
+  oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+  newBtn.addEventListener('click', async()=>{
     await _loginPlayer(player.id, player.name);
-  }, {once:true});
+  });
 }
 
 // Global logout button (visible when player OR coach logged in)
