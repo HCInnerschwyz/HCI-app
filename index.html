@@ -2201,91 +2201,97 @@ document.getElementById('importProfileInput')?.addEventListener('change',ev=>{
 /* 
    AUTH STATE CHANGE (magic link)
  */
-_SB.auth.onAuthStateChange(async(event,session)=>{
-  // SIGNED_IN: magic link clicked
-  // TOKEN_REFRESHED: existing session refreshed
-  // INITIAL_SESSION: page load with existing session (some Supabase versions)
-  if((event==='SIGNED_IN'||event==='TOKEN_REFRESHED') && session?.user){
-    const email = session.user.email;
-    // Reload data to make sure we have latest player list
-    await _loadDB();
-    const player = Object.values(DATA.players).find(
-      p=>p.email && p.email.toLowerCase()===email.toLowerCase()
-    );
-    // Remove loading indicator if present
-    ['authLoading','authLoader'].forEach(id=>{
-      const el = document.getElementById(id);
-      if(el) el.remove();
-    });
-
-    if(player){
-      await _loginPlayer(player.id, player.name);
-    } else {
-      console.warn('Auth: email not found in players:', email);
-      _setShell(false);
-      document.getElementById('startModal').style.display='flex';
-      const msg = document.getElementById('startPlayerMsg');
-      if(msg){ msg.className='info error'; msg.textContent='E-Mail nicht registriert. Bitte Trainer kontaktieren.'; }
-        }
-  }
-});
+;
 
 /* 
    INIT
  */
-(async()=>{
-  // Load data
-  await _loadDB();
+/* ══ INIT — correct Supabase v2 pattern ══
+   onAuthStateChange fires INITIAL_SESSION on page load
+   with the restored session before getSession() would work.
+   We use that as the entry point instead of getSession(). */
 
-  // 1) Trainer session
-  if(localStorage.getItem('hci_coach_mode')==='1'){
-    _activateCoach();
-    return;
-  }
+let _initDone = false;
 
-  // 2) Check URL hash for magic link token
-  if(window.location.hash && window.location.hash.includes('access_token')){
-    // Supabase will fire onAuthStateChange — show loading
-    document.getElementById('startModal').style.display='none';
-    _setShell(false);
-    const loader = document.createElement('div');
-    loader.id = 'authLoader';
-    loader.style.cssText = 'position:fixed;inset:0;background:rgba(10,22,40,.9);display:flex;align-items:center;justify-content:center;z-index:99999;color:#fff;font-family:Barlow,sans-serif;font-size:1rem;letter-spacing:.05em';
-    loader.textContent = 'Anmeldung wird verarbeitet...';
-    document.body.appendChild(loader);
-    setTimeout(()=>{
-      const l = document.getElementById('authLoader');
-      if(l) l.remove();
-      document.getElementById('startModal').style.display='flex';
-      _setShell(false);
-    }, 6000);
-    return;
-  }
+_SB.auth.onAuthStateChange(async(event, session)=>{
+  console.log('[auth] event:', event, 'session:', session?.user?.email || 'null');
 
-  // 3) Check existing Supabase session
-  try {
-    console.log('[init] Checking session...');
-    const {data:{session}} = await _SB.auth.getSession();
-    console.log('[init] Session:', session ? 'EXISTS for ' + session.user?.email : 'NULL');
+  if(event === 'INITIAL_SESSION'){
+    // Page load — this fires first with restored session or null
+    await _loadDB();
+
+    if(localStorage.getItem('hci_coach_mode')==='1'){
+      _activateCoach();
+      _initDone = true;
+      return;
+    }
+
     if(session?.user){
       const email = session.user.email;
       const player = Object.values(DATA.players).find(
         p=>p.email && p.email.toLowerCase()===email.toLowerCase()
       );
-      console.log('[init] Player match:', player ? player.name : 'NOT FOUND');
       if(player){
         await _loginPlayer(player.id, player.name);
+        _initDone = true;
         return;
       }
+      // Session but no matching player
       await _SB.auth.signOut();
     }
-  } catch(e){ console.error('[init] Session check failed:', e); }
 
-  // 4) No session — show modal
-  console.log('[init] Showing modal');
+    // No session or no player match — show modal
+    _setShell(false);
+    document.getElementById('startModal').style.display='flex';
+    _initDone = true;
+    return;
+  }
+
+  if(event === 'SIGNED_IN' && _initDone){
+    // Magic link clicked after page already initialized
+    ['authLoading','authLoader'].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.remove();
+    });
+    await _loadDB();
+    const email = session.user.email;
+    const player = Object.values(DATA.players).find(
+      p=>p.email && p.email.toLowerCase()===email.toLowerCase()
+    );
+    if(player){
+      await _loginPlayer(player.id, player.name);
+    } else {
+      _setShell(false);
+      document.getElementById('startModal').style.display='flex';
+      const msg = document.getElementById('startPlayerMsg');
+      if(msg){ msg.className='info error'; msg.textContent='E-Mail nicht registriert. Bitte Trainer kontaktieren.'; }
+    }
+    return;
+  }
+
+  if(event === 'SIGNED_OUT' && _initDone){
+    _logoutPlayer();
+  }
+});
+
+// Handle magic link URL hash — show loading screen
+if(window.location.hash && window.location.hash.includes('access_token')){
+  document.getElementById('startModal').style.display='none';
   _setShell(false);
-  document.getElementById('startModal').style.display='flex';
-})();
+  const loader = document.createElement('div');
+  loader.id = 'authLoader';
+  loader.style.cssText = 'position:fixed;inset:0;background:rgba(10,22,40,.9);display:flex;align-items:center;justify-content:center;z-index:99999;color:#fff;font-family:Barlow,sans-serif;font-size:1rem';
+  loader.textContent = 'Anmeldung wird verarbeitet...';
+  document.body.appendChild(loader);
+  // Fallback if onAuthStateChange never fires
+  setTimeout(()=>{
+    if(!_initDone){
+      const l=document.getElementById('authLoader'); if(l) l.remove();
+      _setShell(false);
+      document.getElementById('startModal').style.display='flex';
+      _initDone=true;
+    }
+  }, 8000);
+}
 
 </script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
