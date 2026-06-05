@@ -25,14 +25,13 @@
   --good:#177040;--good-bg:#d5f0e0;
   --ok:#8a6000;--ok-bg:#fef0c0;
   --bad:#9a1515;--bad-bg:#fde0e0;
-  --r:8px;--r2:12px;--sh:0 1px 6px rgba(10,22,40,.08),0 4px 16px rgba(10,22,40,.05);
-  /* legacy compat */
+  --r:10px;--r2:14px;--sh:0 1px 6px rgba(10,22,40,.08),0 4px 16px rgba(10,22,40,.05);
   --hci-blue:#0a1628;--hci-blue-strong:#1a2e44;--hci-orange:#e8621a;
   --hci-bg:#f3f6fa;--hci-card:#fff;--hci-border:#c4d4e2;
   --hci-text:#0d1520;--hci-muted:#6a808e;--hci-success:#177040;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{font-size:15px;-webkit-text-size-adjust:100%}
+html{font-size:16px;-webkit-text-size-adjust:100%}
 body{font-family:'Barlow',system-ui,sans-serif;background:var(--ice);color:var(--ink);min-height:100vh}
 
 /*  HEADER  */
@@ -237,6 +236,7 @@ input[type=checkbox]{
         <div class="fg w"><label for="viewModePlayer">Spieler</label><select id="viewModePlayer"></select></div>
         <div class="fg" id="fcTeam"><label for="viewTeam">Team</label><select id="viewTeam"><option value="ALL">Alle</option><option value="U18">U18</option><option value="U21">U21</option></select></div>
         <div class="fg" id="fcSeason"><label for="viewSeason">Saison</label><select id="viewSeason"><option value="ALL">Alle</option><option value="2025/26">2025/26</option><option value="2026/27">2026/27</option></select></div>
+        <div class="fg" id="fcType"><label for="viewType">Kategorie</label><select id="viewType"><option value="ALL">Alle</option><option value="Einstiegstest">Einstiegstest</option><option value="Schlusstest">Schlusstest</option><option value="Sonstiger">Sonstiger</option></select></div>
       </div>
       <div style="margin-top:12px">
         <div id="playerHeaderName" style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.1em;color:var(--ink)"></div>
@@ -252,7 +252,7 @@ input[type=checkbox]{
             <option value="pushups">Liegestütz [Anz]</option><option value="pullups">Klimmzüge [Anz]</option>
             <option value="hupf">5er Hupf [m]</option>
           </select></div>
-          <div class="pill-toggle" id="chartModeToggle"><button data-mode="single" class="active">Zeitreihe</button></div>
+
         </div>
       </div>
       <div style="height:200px"><canvas id="progressChart"></canvas></div>
@@ -1009,6 +1009,8 @@ async function _loadDB(){
       if(teamFilter !== "ALL" && t.team !== teamFilter) return false;
       if(seasonFilter !== "ALL" && t.season !== seasonFilter) return false;
       if(playerFilter && t.playerId !== playerFilter) return false;
+      const typeFilter = document.getElementById('viewType')?.value||'ALL';
+      if(typeFilter !== 'ALL' && t.type !== typeFilter) return false;
       return true;
     }).sort((a,b)=>{
       if(a.team !== b.team) return a.team.localeCompare(b.team);
@@ -1927,11 +1929,13 @@ function refreshPlayerSelects(){
     });
     const ft=document.getElementById('fcTeam'); if(ft) ft.style.display='none';
     const fs=document.getElementById('fcSeason'); if(fs) fs.style.display='none';
+    const fty=document.getElementById('fcType'); if(fty) fty.style.display='none';
     updatePlayerHeader();
   } else {
     _baseRefreshPS();
     const ft=document.getElementById('fcTeam'); if(ft) ft.style.display='';
     const fs=document.getElementById('fcSeason'); if(fs) fs.style.display='';
+    const fty=document.getElementById('fcType'); if(fty) fty.style.display='';
   }
 }
 
@@ -2179,12 +2183,12 @@ document.getElementById('manualAddBtn').addEventListener('click',async()=>{
 });
 
 // Filters & chart
-['viewTeam','viewSeason','viewModePlayer'].forEach(id=>{
+['viewTeam','viewSeason','viewModePlayer','viewType'].forEach(id=>{
   const el=document.getElementById(id);
   if(el) el.addEventListener('change',()=>{updatePlayerHeader();refreshTestsTable();refreshProgressChart();});
 });
 document.getElementById('metricSelect').addEventListener('change',refreshProgressChart);
-document.getElementById('chartModeToggle').addEventListener('click',e=>{
+document.getElementById('chartModeToggle')?.addEventListener('click',e=>{
   if(!e.target.matches('[data-mode]')) return;
   document.querySelectorAll('#chartModeToggle button').forEach(b=>b.classList.remove('active'));
   e.target.classList.add('active'); refreshProgressChart();
