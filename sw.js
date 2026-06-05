@@ -1,4 +1,4 @@
-const CACHE = "hci-v3";
+const CACHE = "hci-v4";
 
 // On install: skip waiting so new SW activates immediately
 self.addEventListener("install", e => {
