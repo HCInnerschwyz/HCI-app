@@ -535,6 +535,7 @@ input[type=checkbox]{
         <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
           <p style="font-size:.76rem;color:var(--muted);margin-bottom:8px">Bereits angemeldet? Gib deine E-Mail ein und klicke hier:</p>
           <button class="btn btn-ghost" id="loginWithSessionBtn" style="width:100%">Mit bestehendem Konto anmelden</button>
+          <p style="font-size:.72rem;color:var(--muted);margin-top:6px;line-height:1.4">Funktioniert nur auf dem Gerät, auf dem du dich zuletzt angemeldet hast.</p>
         </div>
 
         <p class="info" style="margin-top:10px;padding:8px;background:var(--ice2);border-radius:var(--r);line-height:1.6">
@@ -2210,8 +2211,10 @@ _SB.auth.onAuthStateChange(async(event,session)=>{
       p=>p.email && p.email.toLowerCase()===email.toLowerCase()
     );
     // Remove loading indicator if present
-    const loader = document.getElementById('authLoading');
-    if(loader) loader.remove();
+    ['authLoading','authLoader'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.remove();
+    });
 
     if(player){
       await _loginPlayer(player.id, player.name);
@@ -2229,53 +2232,52 @@ _SB.auth.onAuthStateChange(async(event,session)=>{
    INIT
  */
 (async()=>{
-  // Load data first
+  // Load data
   await _loadDB();
 
-  // 1) Coach session from localStorage
+  // 1) Trainer session
   if(localStorage.getItem('hci_coach_mode')==='1'){
     _activateCoach();
     return;
   }
 
-  // 2) If URL contains access_token (magic link), let onAuthStateChange handle it
-  // Supabase v2 processes the hash fragment and fires SIGNED_IN automatically
-  const hash = window.location.hash;
-  if(hash && (hash.includes('access_token') || hash.includes('type=magiclink') || hash.includes('type=signup'))){
-    console.log('Magic link detected in URL — waiting for onAuthStateChange...');
-    // Show loading state, onAuthStateChange will take over
-    _setShell(false);
+  // 2) Check URL hash for magic link token
+  if(window.location.hash && window.location.hash.includes('access_token')){
+    // Supabase will fire onAuthStateChange — show loading
     document.getElementById('startModal').style.display='none';
-    // Show a simple loading indicator
-    document.body.insertAdjacentHTML('beforeend',
-      '<div id="authLoading" style="position:fixed;inset:0;background:rgba(10,22,40,.85);display:flex;align-items:center;justify-content:center;z-index:99999;color:#fff;font-family:Barlow,sans-serif;font-size:1rem">Anmeldung wird verarbeitet...</div>'
-    );
-    // Timeout fallback in case onAuthStateChange never fires
+    _setShell(false);
+    const loader = document.createElement('div');
+    loader.id = 'authLoader';
+    loader.style.cssText = 'position:fixed;inset:0;background:rgba(10,22,40,.9);display:flex;align-items:center;justify-content:center;z-index:99999;color:#fff;font-family:Barlow,sans-serif;font-size:1rem;letter-spacing:.05em';
+    loader.textContent = 'Anmeldung wird verarbeitet...';
+    document.body.appendChild(loader);
     setTimeout(()=>{
-      const loader = document.getElementById('authLoading');
-      if(loader) loader.remove();
-      _setShell(false);
+      const l = document.getElementById('authLoader');
+      if(l) l.remove();
       document.getElementById('startModal').style.display='flex';
-        }, 5000);
+      _setShell(false);
+    }, 6000);
     return;
   }
 
-  // 3) Check for existing Supabase session
-  const {data:{session}} = await _SB.auth.getSession();
-  if(session?.user){
-    const email = session.user.email;
-    const player = Object.values(DATA.players).find(
-      p=>p.email && p.email.toLowerCase()===email.toLowerCase()
-    );
-    if(player){
-      await _loginPlayer(player.id, player.name);
-      return;
+  // 3) Check existing Supabase session
+  try {
+    const {data:{session}} = await _SB.auth.getSession();
+    if(session?.user){
+      const email = session.user.email;
+      const player = Object.values(DATA.players).find(
+        p=>p.email && p.email.toLowerCase()===email.toLowerCase()
+      );
+      if(player){
+        await _loginPlayer(player.id, player.name);
+        return;
+      }
+      // Session exists but not in players list — sign out silently
+      await _SB.auth.signOut();
     }
-    // Session exists but email not in players
-    await _SB.auth.signOut();
-  }
+  } catch(e){ console.error('Session check failed:', e); }
 
-  // 4) No session — show login modal
+  // 4) No session — show modal
   _setShell(false);
   document.getElementById('startModal').style.display='flex';
 })();
@@ -2920,10 +2922,19 @@ document.getElementById('loginWithSessionBtn')?.addEventListener('click', async(
 
   msg.className='info'; msg.textContent='Prüfe Anmeldestatus...';
 
-  // Check current session
-  const {data:{session}} = await _SB.auth.getSession();
+  // Try getSession first, then refreshSession as fallback
+  let session = null;
+  try {
+    const r1 = await _SB.auth.getSession();
+    session = r1.data?.session;
+    // If no session or different email, try refreshing
+    if(!session || session.user?.email?.toLowerCase() !== email.toLowerCase()){
+      const r2 = await _SB.auth.refreshSession();
+      if(r2.data?.session) session = r2.data.session;
+    }
+  } catch(e){ console.log('Session check error:', e); }
+
   if(session?.user && session.user.email.toLowerCase()===email.toLowerCase()){
-    // Valid session for this email
     await _loadDB();
     const player = Object.values(DATA.players).find(
       p=>p.email && p.email.toLowerCase()===email.toLowerCase()
@@ -2931,11 +2942,16 @@ document.getElementById('loginWithSessionBtn')?.addEventListener('click', async(
     if(player){
       await _loginPlayer(player.id, player.name);
       return;
+    } else {
+      msg.className='info error';
+      msg.textContent='E-Mail nicht registriert. Bitte Trainer kontaktieren.';
+      return;
     }
   }
-  // No valid session — send new magic link
+
+  // No valid session for this email
   msg.className='info error';
-  msg.textContent='Kein aktives Konto gefunden. Bitte Link anfordern.';
+  msg.textContent='Kein aktives Konto für diese E-Mail. Bitte neuen Link anfordern.';
 });
 </script>
 </body>
