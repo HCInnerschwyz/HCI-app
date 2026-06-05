@@ -351,10 +351,7 @@ input[type=checkbox]{
           <label class="fq-label" for="fq_militaer">Militär? Wenn ja Wann?</label>
           <textarea id="fq_militaer" name="militaer" class="fq-textarea" rows="3" placeholder="Antwort..."></textarea>
         </div>
-        <div class="fq-item">
-          <label class="fq-label" for="fq_fragen_coaches">Fragen an die Coaches?</label>
-          <textarea id="fq_fragen_coaches" name="fragen_coaches" class="fq-textarea" rows="3" placeholder="Antwort..."></textarea>
-        </div>
+
         <div class="fq-item">
           <label class="fq-label" for="fq_position_spiele">Position die ich spiele</label>
           <textarea id="fq_position_spiele" name="position_spiele" class="fq-textarea" rows="3" placeholder="Antwort..."></textarea>
@@ -364,6 +361,10 @@ input[type=checkbox]{
           <textarea id="fq_position_koennte" name="position_koennte" class="fq-textarea" rows="3" placeholder="Antwort..."></textarea>
         </div>
 
+        <div class="fq-item">
+          <label class="fq-label" for="fq_fragen_coaches">Fragen an die Coaches?</label>
+          <textarea id="fq_fragen_coaches" name="fragen_coaches" class="fq-textarea" rows="3" placeholder="Antwort..."></textarea>
+        </div>
       </div>
     </div>
     <div id="fqSummary"></div>
@@ -2455,7 +2456,7 @@ const _origActivateCoach = _activateCoach;
 /* ══════════════════════════════════
    FRAGEBOGEN
 ══════════════════════════════════ */
-const FQ_QUESTIONS = [{"id": "ziel_mannschaft", "label": "Ziel mit der Mannschaft?"}, {"id": "rolle_team", "label": "Rolle im Team?"}, {"id": "traeume", "label": "Träume?"}, {"id": "liga_ziel_junioren", "label": "Zusätzliche Liga Ziel zu der Junioren Saison"}, {"id": "liga_ziel_nach", "label": "Liga Ziel nach den Junioren"}, {"id": "beruf", "label": "Beruf?"}, {"id": "hobbys", "label": "Hobbys neben Eishockey?"}, {"id": "abwesenheiten", "label": "Geplante Abwesenheiten (Ferien, Arbeit, Schule usw.)? Wann?"}, {"id": "militaer", "label": "Militär? Wenn ja Wann?"}, {"id": "fragen_coaches", "label": "Fragen an die Coaches?"}, {"id": "position_spiele", "label": "Position die ich spiele"}, {"id": "position_koennte", "label": "Position die ich auch spielen könnte?"}];
+const FQ_QUESTIONS = [{"id": "ziel_mannschaft", "label": "Ziel mit der Mannschaft?"}, {"id": "rolle_team", "label": "Rolle im Team?"}, {"id": "traeume", "label": "Träume?"}, {"id": "liga_ziel_junioren", "label": "Zusätzliche Liga Ziel zu der Junioren Saison"}, {"id": "liga_ziel_nach", "label": "Liga Ziel nach den Junioren"}, {"id": "beruf", "label": "Beruf?"}, {"id": "hobbys", "label": "Hobbys neben Eishockey?"}, {"id": "abwesenheiten", "label": "Geplante Abwesenheiten (Ferien, Arbeit, Schule usw.)? Wann?"}, {"id": "militaer", "label": "Militär? Wenn ja Wann?"}, {"id": "position_spiele", "label": "Position die ich spiele"}, {"id": "position_koennte", "label": "Position die ich auch spielen könnte?"}, {"id": "fragen_coaches", "label": "Fragen an die Coaches?"}];
 let _fqActiveIdx = 0;
 let _fqCurrentPid = null;
 
