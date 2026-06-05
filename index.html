@@ -277,14 +277,21 @@ input[type=checkbox]{
         <div class="fg w"><label for="starPlayerSelect">Spieler</label><select id="starPlayerSelect"></select></div>
         <div class="fg"><label for="starTeamSelect">Team</label><select id="starTeamSelect"><option value="ALL">Alle</option><option value="U18">U18</option><option value="U21">U21</option></select></div>
       </div>
-      <div id="playerLoginArea" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--ice2)">
-        <p class="info" style="margin-bottom:8px">Als Spieler anmelden - du erhältst einen Anmeldelink per E-Mail.</p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <input id="playerEmailInput" type="email" placeholder="deine@email.com" style="max-width:240px;flex:1"/>
-          <button class="btn btn-primary btn-sm" id="playerEmailLoginBtn">Link senden</button>
+     <div id="playerLoginArea" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--ice2)">
+        <p class="info" style="margin-bottom:8px">Als Spieler anmelden — du erhältst einen 6-stelligen Code per E-Mail.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center" id="starEmailRow">
+          <input id="playerEmailInput" type="email" placeholder="deine@email.com" style="max-width:220px;flex:1"/>
+          <button class="btn btn-primary btn-sm" id="playerEmailLoginBtn">Code senden</button>
           <button class="btn btn-ghost btn-sm hidden" id="playerEmailLogoutBtn">Abmelden</button>
-          <span id="playerLoginMsg" class="info"></span>
         </div>
+        <div id="starOtpRow" style="display:none;margin-top:8px;gap:8px;align-items:center;flex-wrap:wrap">
+          <input id="starOtpInput" type="text" inputmode="numeric" maxlength="6"
+            placeholder="000000" autocomplete="one-time-code"
+            style="width:120px;letter-spacing:.15em;font-size:1rem;text-align:center;font-family:'Bebas Neue',sans-serif"/>
+          <button class="btn btn-primary btn-sm" id="starOtpVerifyBtn">Anmelden</button>
+          <button class="btn btn-ghost btn-sm" id="starOtpResendBtn">Neu senden</button>
+        </div>
+        <span id="playerLoginMsg" class="info" style="display:block;margin-top:6px"></span>
       </div>
     </div>
 
@@ -526,26 +533,22 @@ input[type=checkbox]{
     <div class="modal-cards">
       <div class="modal-card">
         <h3>Spieler-Login</h3>
-        <p>Gib deine E-Mail-Adresse ein. Du erhältst einen Anmeldelink per E-Mail.</p>
-        <div class="modal-row">
+        <p>Gib deine E-Mail ein. Du erhältst einen 6-stelligen Code per E-Mail.</p>
+        <div class="modal-row" id="emailRow">
           <input id="startEmail" type="email" placeholder="deine@email.com" autocomplete="email"/>
-          <button class="btn btn-primary btn-sm" id="startPlayerBtn">Senden</button>
+          <button class="btn btn-primary btn-sm" id="startPlayerBtn">Code senden</button>
+        </div>
+        <div id="otpRow" style="display:none;margin-top:10px">
+          <p style="font-size:.76rem;color:var(--muted);margin-bottom:8px">Code aus der E-Mail eingeben:</p>
+          <div class="modal-row">
+            <input id="otpInput" type="text" inputmode="numeric" maxlength="6"
+              placeholder="000000" autocomplete="one-time-code"
+              style="letter-spacing:.2em;font-size:1.2rem;text-align:center;font-family:'Bebas Neue',sans-serif"/>
+            <button class="btn btn-primary btn-sm" id="otpVerifyBtn">Anmelden</button>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="otpResendBtn" style="margin-top:8px;width:100%">Neuen Code senden</button>
         </div>
         <div class="modal-msg" id="startPlayerMsg"></div>
-        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
-          <p style="font-size:.76rem;color:var(--muted);margin-bottom:8px">Bereits angemeldet? Gib deine E-Mail ein und klicke hier:</p>
-          <button class="btn btn-ghost" id="loginWithSessionBtn" style="width:100%">Mit bestehendem Konto anmelden</button>
-          <p style="font-size:.72rem;color:var(--muted);margin-top:6px;line-height:1.4">Funktioniert nur auf dem Gerät, auf dem du dich zuletzt angemeldet hast.</p>
-        </div>
-
-        <div style="margin-top:10px;padding:10px;background:var(--ice2);border-radius:var(--r);font-size:.76rem;line-height:1.6;color:var(--ink2)">
-          <strong style="display:block;margin-bottom:4px">iPhone-Anleitung:</strong>
-          1. Gib hier deine E-Mail ein und tippe <strong>Senden</strong><br>
-          2. Öffne die E-Mail auf deinem iPhone<br>
-          3. Tippe den Link an — er öffnet sich in Safari<br>
-          4. Safari leitet dich automatisch zur App weiter<br>
-          5. Du bist angemeldet ✓
-        </div>
       </div>
       <div class="modal-card">
         <h3>Trainer-Login</h3>
@@ -2055,18 +2058,42 @@ function _logoutPlayer(){
 /* 
    MAGIC LINK
  */
-async function _sendLink(email,msgEl,btnEl){
-  if(!email){alert('Bitte E-Mail eingeben.');return;}
-  msgEl.textContent=''; msgEl.className='info';
-  const {data:pl}=await _SB.from('players').select('id,email').eq('email',email);
-  if(!pl||!pl.length){
-    msgEl.className='info error';
-    msgEl.textContent='E-Mail nicht registriert. Bitte Trainer kontaktieren.';
+async function _sendOtp(email, msgEl, btnEl){
+  if(!email){ alert('Bitte E-Mail eingeben.'); return; }
+  if(msgEl){ msgEl.className='info'; msgEl.textContent=''; }
+  // Check player exists
+  const {data:pl} = await _SB.from('players').select('id,email').eq('email', email);
+  if(!pl || !pl.length){
+    if(msgEl){ msgEl.className='info error'; msgEl.textContent='E-Mail nicht registriert. Bitte Trainer kontaktieren.'; }
     return;
   }
-  const {error}=await _SB.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.origin+window.location.pathname}});
-  if(error){msgEl.className='info error';msgEl.textContent='Fehler: '+error.message;}
-  else{msgEl.className='info success';msgEl.textContent='Link gesendet - bitte E-Mails prüfen.';if(btnEl)btnEl.disabled=true;}
+  // Send OTP via Supabase
+  const {error} = await _SB.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: false }
+  });
+  if(error){
+    if(msgEl){ msgEl.className='info error'; msgEl.textContent='Fehler: '+error.message; }
+  } else {
+    if(btnEl) btnEl.disabled = true;
+    if(msgEl){ msgEl.className='info success'; msgEl.textContent='Code gesendet — bitte E-Mails prüfen.'; }
+  }
+}
+
+async function _verifyOtp(email, token, msgEl){
+  if(!token || token.length < 6){
+    if(msgEl){ msgEl.className='info error'; msgEl.textContent='Bitte 6-stelligen Code eingeben.'; }
+    return false;
+  }
+  if(msgEl){ msgEl.className='info'; msgEl.textContent='Wird geprüft...'; }
+  const {data, error} = await _SB.auth.verifyOtp({
+    email, token, type: 'email'
+  });
+  if(error){
+    if(msgEl){ msgEl.className='info error'; msgEl.textContent='Falscher oder abgelaufener Code.'; }
+    return false;
+  }
+  return true;
 }
 
 /* 
@@ -2928,44 +2955,110 @@ document.getElementById('globalLogoutBtn')?.addEventListener('click', async()=>{
 // _showGlobalLogout is called directly from _loginPlayer, _activateCoach etc below
 
 
-/* Simple session login */
-document.getElementById('loginWithSessionBtn')?.addEventListener('click', async()=>{
+
+
+/* ══ OTP LOGIN WIRING ══ */
+
+// Modal: send code
+document.getElementById('startPlayerBtn')?.addEventListener('click', async()=>{
   const email = document.getElementById('startEmail').value.trim();
   const msg = document.getElementById('startPlayerMsg');
-  if(!email){ msg.className='info error'; msg.textContent='Bitte E-Mail eingeben.'; return; }
+  await _sendOtp(email, msg, document.getElementById('startPlayerBtn'));
+  if(!msg.classList.contains('error') && !msg.textContent.includes('nicht')){
+    document.getElementById('emailRow').style.display = 'none';
+    document.getElementById('otpRow').style.display = 'block';
+  }
+});
+document.getElementById('startEmail')?.addEventListener('keydown', e=>{
+  if(e.key==='Enter') document.getElementById('startPlayerBtn')?.click();
+});
 
-  msg.className='info'; msg.textContent='Prüfe Anmeldestatus...';
-
-  // Try getSession first, then refreshSession as fallback
-  let session = null;
-  try {
-    const r1 = await _SB.auth.getSession();
-    session = r1.data?.session;
-    // If no session or different email, try refreshing
-    if(!session || session.user?.email?.toLowerCase() !== email.toLowerCase()){
-      const r2 = await _SB.auth.refreshSession();
-      if(r2.data?.session) session = r2.data.session;
-    }
-  } catch(e){ console.log('Session check error:', e); }
-
-  if(session?.user && session.user.email.toLowerCase()===email.toLowerCase()){
+// Modal: verify OTP
+document.getElementById('otpVerifyBtn')?.addEventListener('click', async()=>{
+  const email = document.getElementById('startEmail').value.trim();
+  const token = document.getElementById('otpInput').value.trim();
+  const msg = document.getElementById('startPlayerMsg');
+  const ok = await _verifyOtp(email, token, msg);
+  if(ok){
     await _loadDB();
     const player = Object.values(DATA.players).find(
       p=>p.email && p.email.toLowerCase()===email.toLowerCase()
     );
     if(player){
       await _loginPlayer(player.id, player.name);
-      return;
+      // Reset modal
+      document.getElementById('emailRow').style.display = '';
+      document.getElementById('otpRow').style.display = 'none';
+      document.getElementById('otpInput').value = '';
+      document.getElementById('startPlayerBtn').disabled = false;
     } else {
       msg.className='info error';
       msg.textContent='E-Mail nicht registriert. Bitte Trainer kontaktieren.';
-      return;
     }
   }
+});
+document.getElementById('otpInput')?.addEventListener('keydown', e=>{
+  if(e.key==='Enter') document.getElementById('otpVerifyBtn')?.click();
+});
 
-  // No valid session for this email
-  msg.className='info error';
-  msg.textContent='Kein aktives Konto für diese E-Mail. Bitte neuen Link anfordern.';
+// Modal: resend
+document.getElementById('otpResendBtn')?.addEventListener('click', async()=>{
+  const email = document.getElementById('startEmail').value.trim();
+  const msg = document.getElementById('startPlayerMsg');
+  document.getElementById('startPlayerBtn').disabled = false;
+  await _sendOtp(email, msg, document.getElementById('startPlayerBtn'));
+});
+
+// STAR tab: send code
+document.getElementById('playerEmailLoginBtn')?.addEventListener('click', async()=>{
+  const email = document.getElementById('playerEmailInput').value.trim();
+  const msg = document.getElementById('playerLoginMsg');
+  await _sendOtp(email, msg, document.getElementById('playerEmailLoginBtn'));
+  if(!msg.textContent.includes('nicht') && !msg.textContent.includes('Fehler')){
+    document.getElementById('starEmailRow').style.display = 'none';
+    document.getElementById('starOtpRow').style.display = 'flex';
+  }
+});
+
+// STAR tab: verify OTP
+document.getElementById('starOtpVerifyBtn')?.addEventListener('click', async()=>{
+  const email = document.getElementById('playerEmailInput').value.trim();
+  const token = document.getElementById('starOtpInput').value.trim();
+  const msg = document.getElementById('playerLoginMsg');
+  const ok = await _verifyOtp(email, token, msg);
+  if(ok){
+    await _loadDB();
+    const player = Object.values(DATA.players).find(
+      p=>p.email && p.email.toLowerCase()===email.toLowerCase()
+    );
+    if(player){
+      await _loginPlayer(player.id, player.name);
+      document.getElementById('starEmailRow').style.display = '';
+      document.getElementById('starOtpRow').style.display = 'none';
+      document.getElementById('starOtpInput').value = '';
+    }
+  }
+});
+document.getElementById('starOtpInput')?.addEventListener('keydown', e=>{
+  if(e.key==='Enter') document.getElementById('starOtpVerifyBtn')?.click();
+});
+
+// STAR tab: resend
+document.getElementById('starOtpResendBtn')?.addEventListener('click', async()=>{
+  const email = document.getElementById('playerEmailInput').value.trim();
+  const msg = document.getElementById('playerLoginMsg');
+  document.getElementById('playerEmailLoginBtn').disabled = false;
+  await _sendOtp(email, msg, document.getElementById('playerEmailLoginBtn'));
+});
+
+// Logout
+document.getElementById('playerEmailLogoutBtn')?.addEventListener('click', async()=>{
+  await _SB.auth.signOut();
+  _logoutPlayer();
+  document.getElementById('starEmailRow').style.display = '';
+  document.getElementById('starOtpRow').style.display = 'none';
+  document.getElementById('playerEmailLoginBtn').disabled = false;
+  document.getElementById('playerEmailInput').value = '';
 });
 </script>
 </body>
