@@ -532,10 +532,11 @@ input[type=checkbox]{
           <button class="btn btn-primary btn-sm" id="startPlayerBtn">Senden</button>
         </div>
         <div class="modal-msg" id="startPlayerMsg"></div>
-        <div id="resumeSessionArea" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
-          <button class="btn btn-primary" id="resumeSessionBtn" style="width:100%;justify-content:center">Mit bestehendem Konto anmelden</button>
-          <div id="resumeSessionEmail" class="info" style="margin-top:6px;text-align:center"></div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+          <p style="font-size:.76rem;color:var(--muted);margin-bottom:8px">Bereits angemeldet? Gib deine E-Mail ein und klicke hier:</p>
+          <button class="btn btn-ghost" id="loginWithSessionBtn" style="width:100%">Mit bestehendem Konto anmelden</button>
         </div>
+
         <p class="info" style="margin-top:10px;padding:8px;background:var(--ice2);border-radius:var(--r);line-height:1.6">
           <strong>iPhone:</strong> Öffne den Link aus der E-Mail in <strong>Safari</strong>,
           kopiere dann die URL und öffne sie erneut in Safari — oder füge die App zuerst
@@ -1990,7 +1991,6 @@ function _deactivateCoach(){
   _setShell(false);
   _showGlobalLogout(false);
   document.getElementById('startModal').style.display='flex';
-  _checkResumeSession();
   refreshAllViews();
 }
 
@@ -2043,7 +2043,6 @@ function _logoutPlayer(){
   _setShell(false);
   _showGlobalLogout(false);
   document.getElementById('startModal').style.display='flex';
-  _checkResumeSession();
   refreshAllViews();
 }
 
@@ -2222,8 +2221,7 @@ _SB.auth.onAuthStateChange(async(event,session)=>{
       document.getElementById('startModal').style.display='flex';
       const msg = document.getElementById('startPlayerMsg');
       if(msg){ msg.className='info error'; msg.textContent='E-Mail nicht registriert. Bitte Trainer kontaktieren.'; }
-      _checkResumeSession();
-    }
+        }
   }
 });
 
@@ -2258,8 +2256,7 @@ _SB.auth.onAuthStateChange(async(event,session)=>{
       if(loader) loader.remove();
       _setShell(false);
       document.getElementById('startModal').style.display='flex';
-      _checkResumeSession();
-    }, 5000);
+        }, 5000);
     return;
   }
 
@@ -2281,7 +2278,6 @@ _SB.auth.onAuthStateChange(async(event,session)=>{
   // 4) No session — show login modal
   _setShell(false);
   document.getElementById('startModal').style.display='flex';
-  _checkResumeSession();
 })();
 
 </script>
@@ -2894,46 +2890,7 @@ document.getElementById('saveCoachCommentsBtn')?.addEventListener('click', async
 /* ══ RESUME SESSION / GLOBAL LOGOUT ══ */
 
 // Check if Supabase has a cached session and show resume button
-async function _checkResumeSession(){
-  const {data:{session}} = await _SB.auth.getSession();
-  if(!session?.user) return;
-  const email = session.user.email;
 
-  // Try to find matching player
-  let player = Object.values(DATA.players).find(
-    p=>p.email && p.email.toLowerCase()===email.toLowerCase()
-  );
-
-  const area = document.getElementById('resumeSessionArea');
-  const emailEl = document.getElementById('resumeSessionEmail');
-  if(!area) return;
-
-  // Show resume button regardless — even if player email not yet set
-  area.style.display = 'flex';
-  if(emailEl) emailEl.textContent = player ? player.name : email;
-
-  // Wire button
-  const oldBtn = document.getElementById('resumeSessionBtn');
-  if(!oldBtn) return;
-  const newBtn = oldBtn.cloneNode(true);
-  oldBtn.parentNode.replaceChild(newBtn, oldBtn);
-  newBtn.addEventListener('click', async()=>{
-    if(player){
-      await _loginPlayer(player.id, player.name);
-    } else {
-      await _loadDB();
-      player = Object.values(DATA.players).find(
-        p=>p.email && p.email.toLowerCase()===email.toLowerCase()
-      );
-      if(player){
-        await _loginPlayer(player.id, player.name);
-      } else {
-        const msg = document.getElementById('startPlayerMsg');
-        if(msg){ msg.className='info error'; msg.textContent='E-Mail nicht registriert. Bitte Trainer kontaktieren.'; }
-      }
-    }
-  });
-}
 
 // Global logout button (visible when player OR coach logged in)
 function _showGlobalLogout(show){
@@ -2953,6 +2910,33 @@ document.getElementById('globalLogoutBtn')?.addEventListener('click', async()=>{
 });
 
 // _showGlobalLogout is called directly from _loginPlayer, _activateCoach etc below
+
+
+/* Simple session login */
+document.getElementById('loginWithSessionBtn')?.addEventListener('click', async()=>{
+  const email = document.getElementById('startEmail').value.trim();
+  const msg = document.getElementById('startPlayerMsg');
+  if(!email){ msg.className='info error'; msg.textContent='Bitte E-Mail eingeben.'; return; }
+
+  msg.className='info'; msg.textContent='Prüfe Anmeldestatus...';
+
+  // Check current session
+  const {data:{session}} = await _SB.auth.getSession();
+  if(session?.user && session.user.email.toLowerCase()===email.toLowerCase()){
+    // Valid session for this email
+    await _loadDB();
+    const player = Object.values(DATA.players).find(
+      p=>p.email && p.email.toLowerCase()===email.toLowerCase()
+    );
+    if(player){
+      await _loginPlayer(player.id, player.name);
+      return;
+    }
+  }
+  // No valid session — send new magic link
+  msg.className='info error';
+  msg.textContent='Kein aktives Konto gefunden. Bitte Link anfordern.';
+});
 </script>
 </body>
 </html>
