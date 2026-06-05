@@ -2038,100 +2038,106 @@ function _avgLabel(avg){
 
 function _renderStarSummary(hist, older){
   const container = document.getElementById('starSummary');
-  if(!container){ return; }
+  if(!container) return;
   if(!hist){ container.innerHTML=''; return; }
 
   const data = hist.data || {};
   const d = new Date(hist.saved_at);
   const dateStr = d.toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'numeric'});
   const byStr = hist.saved_by==='coach'?'Trainer':'Spieler';
-
-  // Get STAR_ELEMENTS from the app
   const elements = (typeof STAR_ELEMENTS !== 'undefined') ? STAR_ELEMENTS : [];
 
-  let html = `<div class="summary-card">
+  // Keys use format: {area.id}_{ab.key}_rating, {area.id}_smart, {area.id}_coach_comment
+  let out = `<div class="summary-card">
     <h3>Zusammenfassung — ${dateStr} (${byStr})</h3>`;
 
+  const allRatings = [];
+
   elements.forEach(area => {
-    // Collect self-ratings for this area
     const ratings = [];
-    let smartGoals = [];
-    let coachComments = [];
 
+    // Collect ratings: key format = "{area.id}_{ab.key}_rating"
     (area.abilities||[]).forEach(ab => {
-      const ratingKey = ab.key + '_rating';
-      const val = data[ratingKey];
-      if(val && !isNaN(parseInt(val))) ratings.push(parseInt(val));
+      const key = `${area.id}_${ab.key}_rating`;
+      const val = data[key];
+      if(val != null && !isNaN(parseInt(val))){
+        ratings.push(parseInt(val));
+        allRatings.push(parseInt(val));
+      }
     });
 
-    // SMART goals and coach comments are stored per element
-    const smartKey = area.id + '_smart';
-    const coachKey = area.id + '_coach_comment';
-    if(data[smartKey]) smartGoals.push(data[smartKey]);
-    if(data[coachKey]) coachComments.push(data[coachKey]);
+    const avg = ratings.length ? ratings.reduce((a,b)=>a+b,0)/ratings.length : null;
+    const avgR = avg !== null ? Math.round(avg*10)/10 : null;
+    const avgClass = avgR !== null ? _avgLabel(avgR) : '';
 
-    // Also check per-ability smart/coach keys
-    (area.abilities||[]).forEach(ab => {
-      const sk = ab.key + '_smart';
-      const ck = ab.key + '_coach_comment';
-      if(data[sk] && !smartGoals.includes(data[sk])) smartGoals.push(data[sk]);
-      if(data[ck] && !coachComments.includes(data[ck])) coachComments.push(data[ck]);
-    });
+    // SMART goal: key = "{area.id}_smart"
+    const smart = data[`${area.id}_smart`];
+    // Coach comment: key = "{area.id}_coach_comment"
+    const coach = data[`${area.id}_coach_comment`];
 
-    const avg = ratings.length ? (ratings.reduce((a,b)=>a+b,0)/ratings.length) : null;
-    const avgRounded = avg ? Math.round(avg*10)/10 : null;
-    const avgClass = avgRounded ? _avgLabel(avgRounded) : '';
+    out += `<div class="summary-area"><h4>${area.title||area.id}</h4>`;
 
-    html += `<div class="summary-area">
-      <h4>${area.title||area.id}</h4>`;
-
-    html += `<div class="summary-row">
+    // Ratings row
+    out += `<div class="summary-row">
       <span class="summary-label">Selbsteinschätzung</span>
       <span class="summary-val" style="display:flex;align-items:center;gap:8px">
-        ${avgRounded !== null
-          ? `<span class="summary-avg ${avgClass}">${avgRounded}</span><span class="info">Ø aus ${ratings.length} Fähigkeiten</span>`
-          : '<span class="info">—</span>'}
+        ${avgR !== null
+          ? `<span class="summary-avg ${avgClass}">${avgR}</span>
+             <span class="info">Durchschnitt aus ${ratings.length} Fähigkeiten</span>`
+          : '<span class="info">Keine Angaben</span>'}
       </span>
     </div>`;
 
-    if(smartGoals.filter(Boolean).length){
-      html += `<div class="summary-row">
-        <span class="summary-label">SMART Ziele</span>
-        <span class="summary-val">${smartGoals.filter(Boolean).map(g=>`<div>${g}</div>`).join('')}</span>
+    // Per-ability breakdown if ratings exist
+    if(ratings.length){
+      out += `<div style="margin:4px 0 6px 0;padding:6px 10px;background:var(--ice);border-radius:var(--r);font-size:.74rem;display:flex;flex-wrap:wrap;gap:6px">`;
+      (area.abilities||[]).forEach(ab => {
+        const val = data[`${area.id}_${ab.key}_rating`];
+        if(val != null && !isNaN(parseInt(val))){
+          const v = parseInt(val);
+          const cls = _avgLabel(v);
+          out += `<span style="display:inline-flex;align-items:center;gap:4px">
+            <span class="summary-avg ${cls}" style="width:20px;height:20px;font-size:.65rem">${v}</span>
+            <span style="color:var(--muted)">${ab.label}</span>
+          </span>`;
+        }
+      });
+      out += `</div>`;
+    }
+
+    // SMART goal
+    if(smart){
+      out += `<div class="summary-row">
+        <span class="summary-label">SMART Ziel</span>
+        <span class="summary-val">${smart}</span>
       </div>`;
     }
 
-    if(coachComments.filter(Boolean).length){
-      html += `<div class="summary-row">
+    // Coach comment
+    if(coach){
+      out += `<div class="summary-row">
         <span class="summary-label">Trainerkommentar</span>
-        <span class="summary-val">${coachComments.filter(Boolean).map(c=>`<div class="summary-coach">${c}</div>`).join('')}</span>
+        <span class="summary-val"><div class="summary-coach">${coach}</div></span>
       </div>`;
     }
 
-    html += `</div>`;
+    out += `</div>`;
   });
 
   // Overall average
-  const allRatings = [];
-  elements.forEach(area => {
-    (area.abilities||[]).forEach(ab => {
-      const val = data[ab.key+'_rating'];
-      if(val && !isNaN(parseInt(val))) allRatings.push(parseInt(val));
-    });
-  });
   if(allRatings.length){
-    const overallAvg = Math.round(allRatings.reduce((a,b)=>a+b,0)/allRatings.length * 10)/10;
-    html += `<div style="margin-top:14px;padding-top:12px;border-top:2px solid var(--ice2);display:flex;align-items:center;gap:12px">
-      <span class="summary-avg ${_avgLabel(overallAvg)}" style="width:36px;height:36px;font-size:.9rem">${overallAvg}</span>
+    const ov = Math.round(allRatings.reduce((a,b)=>a+b,0)/allRatings.length*10)/10;
+    out += `<div style="margin-top:14px;padding-top:12px;border-top:2px solid var(--ice2);display:flex;align-items:center;gap:12px">
+      <span class="summary-avg ${_avgLabel(ov)}" style="width:40px;height:40px;font-size:.95rem">${ov}</span>
       <div>
-        <div style="font-family:'Bebas Neue',sans-serif;font-size:.8rem;letter-spacing:.1em;color:var(--ink)">GESAMTDURCHSCHNITT</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:.82rem;letter-spacing:.1em;color:var(--ink)">Gesamtdurchschnitt</div>
         <div class="info">Basierend auf ${allRatings.length} Selbsteinschätzungen</div>
       </div>
     </div>`;
   }
 
-  html += '</div>';
-  container.innerHTML = html;
+  out += '</div>';
+  container.innerHTML = out;
 }
 </script>
 </body>
