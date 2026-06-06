@@ -2012,10 +2012,16 @@ function refreshPlayerSelects(){
     const fty=document.getElementById('fcType'); if(fty) fty.style.display='none';
     updatePlayerHeader();
   } else {
-    _baseRefreshPS();
+    // Explicitly re-enable all filter selects first
+    // (original loginAsPlayer sets disabled=true on viewTeam, viewSeason, viewModePlayer)
+    ['viewModePlayer','viewTeam','viewSeason','viewType','starPlayerSelect'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el) el.disabled=false;
+    });
     const ft=document.getElementById('fcTeam'); if(ft) ft.style.display='';
     const fs=document.getElementById('fcSeason'); if(fs) fs.style.display='';
     const fty=document.getElementById('fcType'); if(fty) fty.style.display='';
+    _baseRefreshPS();
   }
 }
 
@@ -2057,6 +2063,11 @@ function _setShell(on){
 function _activateCoach(){
   localStorage.setItem('hci_coach_mode','1');
   window._pid=null;
+  // Reset any disabled state on filter selects set by loginAsPlayer
+  ['viewModePlayer','viewTeam','viewSeason','viewType','starPlayerSelect'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.disabled=false;
+  });
   _setShell(true);
   _showGlobalLogout(true);
   document.getElementById('startModal').style.display='none';
