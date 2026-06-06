@@ -48,8 +48,8 @@ body{font-family:'Barlow',system-ui,sans-serif;background:var(--ice);color:var(-
 
 /*  HEADER  */
 .hdr{background:var(--navy);border-bottom:3px solid var(--orange);display:flex;align-items:center;gap:12px;padding:10px 18px;position:sticky;top:0;z-index:300;flex-wrap:wrap}
-.hdr-logo{width:46px;height:46px;border-radius:50%;overflow:hidden;border:2px solid var(--orange);flex-shrink:0}
-.hdr-logo img{width:100%;height:100%;object-fit:cover;display:block}
+.hdr-logo{width:54px;height:54px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.hdr-logo img{width:100%;height:100%;object-fit:contain;display:block}
 .hdr-title{flex:1;min-width:140px}
 .hdr-title h1{font-family:'Bebas Neue',sans-serif;font-size:1.15rem;letter-spacing:.14em;color:#fff;line-height:1.1}
 .hdr-title p{font-size:.6rem;color:#6a9ab8;letter-spacing:.15em;text-transform:uppercase;margin-top:2px}
@@ -161,7 +161,7 @@ tr:hover td{background:var(--ice)}
 .modal-bg{position:fixed;inset:0;background:rgba(5,12,25,.72);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;backdrop-filter:blur(5px)}
 .modal{background:#fff;border-radius:16px;padding:26px;max-width:640px;width:100%;box-shadow:0 24px 64px rgba(5,12,25,.4);max-height:90vh;overflow-y:auto}
 .modal-logo{display:flex;align-items:center;gap:13px;margin-bottom:18px}
-.modal-logo img{width:48px;height:48px;border-radius:50%;border:2px solid var(--orange);object-fit:cover}
+.modal-logo img{width:60px;height:60px;object-fit:contain}
 .modal-logo h2{font-family:'Bebas Neue',sans-serif;font-size:1.25rem;letter-spacing:.14em;color:var(--ink)}
 .modal-cards{display:flex;gap:14px;flex-wrap:wrap;margin-top:14px}
 .modal-card{flex:1;min-width:220px;background:var(--ice);border:1px solid var(--border);border-radius:var(--r2);padding:18px}
