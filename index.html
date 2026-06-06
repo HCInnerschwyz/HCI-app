@@ -250,6 +250,13 @@ input[type=checkbox]{
   #progressChart{max-height:200px}
 }
 </style>
+<script>
+/* Lock shell immediately until auth resolves */
+window.addEventListener('DOMContentLoaded',function(){
+  var s=document.getElementById('shell');
+  if(s) s.classList.add('locked');
+});
+</script>
 </head>
 <body>
 
@@ -267,7 +274,7 @@ input[type=checkbox]{
   </div>
 </div>
 
-<div class="content-shell locked" id="shell">
+<div class="content-shell" id="shell">
   <div class="nav">
     <button class="nav-btn active" data-pg="pgTests">Physische Tests</button>
     <button class="nav-btn" data-pg="pgStar">STAR Profil</button>
