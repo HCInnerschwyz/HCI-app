@@ -160,7 +160,7 @@ tr:hover td{background:var(--ice)}
 .summary-coach{background:var(--orange-a);border-left:3px solid var(--orange);padding:6px 10px;border-radius:0 var(--r) var(--r) 0;font-size:.8rem;color:var(--ink2);line-height:1.5;margin-top:4px}
 
 /*  MODAL  */
-.modal-bg{position:fixed;inset:0;background:rgba(5,12,25,.72);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;backdrop-filter:blur(5px)}
+.modal-bg{position:fixed;inset:0;background:rgba(5,12,25,.72);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;backdrop-filter:none}
 .modal{background:#fff;border-radius:16px;padding:26px;max-width:640px;width:100%;box-shadow:0 24px 64px rgba(5,12,25,.4);max-height:90vh;overflow-y:auto}
 .modal-logo{display:flex;align-items:center;gap:13px;margin-bottom:18px}
 .modal-logo img{width:60px;height:60px;object-fit:contain;}
@@ -213,8 +213,7 @@ tr:hover td{background:var(--ice)}
 .sync-banner{position:fixed;bottom:20px;right:20px;background:var(--navy);color:#fff;padding:9px 18px;border-radius:10px;font-size:.74rem;font-family:'Barlow',sans-serif;z-index:9999;display:none;align-items:center;gap:9px;box-shadow:0 4px 20px rgba(0,0,0,.3)}
 .sync-dot{width:7px;height:7px;border-radius:50%;background:var(--orange);flex-shrink:0;animation:sdp 1s infinite}
 @keyframes sdp{0%,100%{opacity:1}50%{opacity:.2}}
-.content-shell{transition:opacity .2s,filter .2s}
-.content-shell.locked{opacity:.15;pointer-events:none;filter:blur(3px)}
+.content-shell.locked .nav,.content-shell.locked .page{visibility:hidden}
 
 /* Checkboxes */
 input[type=checkbox]{
@@ -2042,8 +2041,17 @@ const _PIN='HCI2026AM';
 
 function _setShell(on){
   const s=document.getElementById('shell');
-  if(on) s.classList.remove('locked');
-  else s.classList.add('locked');
+  if(s){
+    if(on){
+      s.classList.remove('locked');
+      s.style.pointerEvents='';
+      s.style.filter='';
+    } else {
+      s.classList.add('locked');
+    }
+  }
+  const modal=document.getElementById('startModal');
+  if(modal) modal.style.display = on ? 'none' : 'flex';
 }
 
 function _activateCoach(){
