@@ -2077,8 +2077,6 @@ function _setShell(on){
 function _activateCoach(){
   localStorage.setItem('hci_coach_mode','1');
   window._pid=null;
-  // Sign out any Supabase player session to prevent mixing
-  _SB.auth.signOut().catch(()=>{});
   // Reset any disabled state on filter selects set by loginAsPlayer
   ['viewModePlayer','viewTeam','viewSeason','viewType','starPlayerSelect'].forEach(id=>{
     const el=document.getElementById(id);
@@ -2416,14 +2414,18 @@ _SB.auth.onAuthStateChange(async(event, session)=>{
   }
 
   if(event === 'SIGNED_OUT' && _initDone){
-    _logoutPlayer();
+    // Only log out player if not in coach mode
+    // (coach activating triggers SIGNED_OUT which should be ignored)
+    if(localStorage.getItem('hci_coach_mode') !== '1'){
+      _logoutPlayer();
+    }
   }
 });
 
 // Safety fallback: if INITIAL_SESSION doesn't fire within 4 seconds, show modal
 setTimeout(function(){
   if(!_initDone){
-    console.warn('[auth] INITIAL_SESSION timeout — showing modal');
+    console.log('[auth] Fallback: showing modal');
     _setShell(false);
     document.getElementById('startModal').style.display='flex';
     _initDone = true;
