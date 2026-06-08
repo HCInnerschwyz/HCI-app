@@ -2122,8 +2122,13 @@ function _deactivateCoach(){
 
 async function _loginPlayer(pid,name){
   console.log('[login] Logging in:', name, pid);
-  // Clear coach mode if active — sessions must not mix
+  // Clear coach mode and reset trainer UI if it was active
   localStorage.removeItem('hci_coach_mode');
+  const trainerArea = document.getElementById('trainerArea');
+  const trainerLoginCard = document.getElementById('trainerLoginCard');
+  if(trainerArea) trainerArea.classList.add('hidden');
+  if(trainerLoginCard) trainerLoginCard.classList.remove('hidden');
+  document.getElementById('modeDot')?.classList.remove('coach');
   window._pid=pid;
   _setShell(true);
   document.getElementById('startModal').style.display='none';
@@ -2159,6 +2164,12 @@ async function _loginPlayer(pid,name){
 
 function _logoutPlayer(){
   window._pid=null;
+  localStorage.removeItem('hci_coach_mode');
+  // Fully reset trainer UI
+  const trainerArea = document.getElementById('trainerArea');
+  const trainerLoginCard = document.getElementById('trainerLoginCard');
+  if(trainerArea) trainerArea.classList.add('hidden');
+  if(trainerLoginCard) trainerLoginCard.classList.remove('hidden');
   if(window.HCIPlayerCodes) window.HCIPlayerCodes.logoutPlayer();
   document.getElementById('modeLabel').textContent='-';
   document.getElementById('modeDot').classList.remove('coach');
