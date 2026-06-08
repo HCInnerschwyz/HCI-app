@@ -300,6 +300,7 @@ window.addEventListener('DOMContentLoaded',function(){
       <div class="card-hd"><h2>Entwicklung</h2>
         <div class="actions" style="gap:8px;flex-wrap:wrap">
           <div class="fg" style="min-width:150px"><select id="metricSelect" style="font-size:.8rem">
+            <option value="groesse">Grösse [cm]</option><option value="gewicht">Gewicht [kg]</option>
             <option value="yoYo">Yo-Yo [m]</option><option value="core">Rumpfstabi [sec]</option>
             <option value="pushups">Liegestütz [Anz]</option><option value="pullups">Klimmzüge [Anz]</option>
             <option value="hupf">5er Hupf [m]</option>
@@ -1116,6 +1117,8 @@ async function _loadDB(){
   let progressChart = null;
   function metricLabel(metric){
     switch(metric){
+      case "groesse": return "Grösse [cm]";
+      case "gewicht": return "Gewicht [kg]";
       case "yoYo": return "Yo-Yo [m]";
       case "core": return "Rumpfstabi gerade [sec]";
       case "pushups": return "Liegestütz [Anz]";
@@ -3189,6 +3192,7 @@ function _refreshTeamAvgChart(){
   const typeFilter = document.getElementById('chartTypeSel')?.value || 'ALL';
 
   const METRIC_LABELS = {
+    groesse:'Grösse [cm]', gewicht:'Gewicht [kg]',
     yoYo:'Yo-Yo [m]', core:'Rumpfstabi [sec]',
     pushups:'Liegestütz', pullups:'Klimmzüge', hupf:'5er Hupf [m]'
   };
