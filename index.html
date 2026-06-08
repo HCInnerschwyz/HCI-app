@@ -1300,7 +1300,7 @@ async function _loadDB(){
       html += `</section>`;
     });
 
-    html += `<div style="margin-top:16px;"><button type="submit" class="btn-primary">Tallenna STAR‑profiili</button> <button type="button" id="exportCsvBtn" class="btn-secondary">Vie CSV</button></div></form>`;
+    html += `<div style="margin-top:16px;"><button type="submit" class="btn-primary">STAR-Profil speichern</button> <button type="button" id="exportCsvBtn" class="btn-secondary">CSV exportieren</button></div></form>`;
     container.innerHTML = html;
   }
 
@@ -1337,7 +1337,7 @@ async function _loadDB(){
     function saveProfile(profileObj, savedBy="web"){
       const playerId = profileObj.playerId;
       const profileDate = profileObj.profileDate;
-      if(!playerId){ alert("playerId puuttuu."); return null; }
+      if(!playerId){ alert("Bitte zuerst einen Spieler auswählen."); return null; }
       const keyBase = `star_profile:${playerId}:${profileDate}`;
       const index = JSON.parse(localStorage.getItem(INDEX_KEY) || "{}");
       index[playerId] = index[playerId] || [];
@@ -1412,7 +1412,11 @@ async function _loadDB(){
       form.addEventListener("submit",(ev)=>{
         ev.preventDefault();
         const data = collectFormData(form);
-        if(!data.playerId){ alert("Aseta pelaaja ennen tallennusta."); return; }
+        // Fallback: use logged-in player id if form field is empty
+        if(!data.playerId && window._pid) data.playerId = window._pid;
+        if(!data.playerId && document.getElementById('starPlayerSelect')?.value)
+          data.playerId = document.getElementById('starPlayerSelect').value;
+        if(!data.playerId){ alert("Bitte zuerst einen Spieler auswählen."); return; }
         if(!data.profileDate) data.profileDate = new Date().toISOString().slice(0,10);
         const saved = saveProfile(data,"web");
         if(saved) alert(`STAR‑profiili tallennettu. Versio ${saved.version}`);
@@ -1555,7 +1559,11 @@ async function _loadDB(){
       form.addEventListener("submit",(ev)=>{
         ev.preventDefault();
         const data = collectFormData(form);
-        if(!data.playerId){ alert("Aseta pelaaja ennen tallennusta."); return; }
+        // Fallback: use logged-in player id if form field is empty
+        if(!data.playerId && window._pid) data.playerId = window._pid;
+        if(!data.playerId && document.getElementById('starPlayerSelect')?.value)
+          data.playerId = document.getElementById('starPlayerSelect').value;
+        if(!data.playerId){ alert("Bitte zuerst einen Spieler auswählen."); return; }
         if(!data.profileDate) data.profileDate = new Date().toISOString().slice(0,10);
         const saved = saveProfile(data,"web");
         if(saved) alert(`STAR‑profiili tallennettu. Versio ${saved.version}`);
@@ -1783,12 +1791,12 @@ async function _loadDB(){
 
       loginBtn.addEventListener("click", ()=>{
         const code = input.value.trim();
-        if(!code){ alert("Syötä koodi"); return; }
+        if(!code){ alert("Bitte Code eingeben."); return; }
         const pid = findPlayerByCode(code);
-        if(!pid){ alert("Koodi ei kelpaa tai on vanhentunut"); return; }
+        if(!pid){ alert("Code ungültig oder abgelaufen."); return; }
         loginAsPlayer(pid);
         updateUIForLogin();
-        alert("Kirjauduttu sisään pelaajana");
+        alert("Als Spieler angemeldet.");
         const modal = document.getElementById("startModal");
         if(modal) modal.style.display = "none";
       });
@@ -2133,13 +2141,12 @@ async function _loginPlayer(pid,name){
   document.querySelector('[data-pg="pgTests"]').classList.add('active');
   document.getElementById('pgTests').classList.add('active');
   refreshAllViews();
-  // Pre-load STAR profile for this player
-  setTimeout(()=>{
-    const ss=document.getElementById('starPlayerSelect'); if(ss){ss.value=pid;}
-    const pi=document.getElementById('playerId'); if(pi) pi.value=pid;
-    const pd=document.getElementById('profileDate'); if(pd) pd.value=new Date().toISOString().slice(0,10);
-    _loadStarHistory(pid);
-  },300);
+  // Set STAR form fields immediately for player
+  const _ssEl=document.getElementById('starPlayerSelect'); if(_ssEl) _ssEl.value=pid;
+  const _piEl=document.getElementById('playerId'); if(_piEl) _piEl.value=pid;
+  const _pdEl=document.getElementById('profileDate'); if(_pdEl) _pdEl.value=new Date().toISOString().slice(0,10);
+  // Load STAR history after a short delay for DOM to settle
+  setTimeout(()=>{ _loadStarHistory(pid); },300);
 }
 
 function _logoutPlayer(){
