@@ -250,10 +250,13 @@ input[type=checkbox]{
 }
 </style>
 <script>
-/* Lock shell immediately until auth resolves */
+/* Lock shell and show loader until INITIAL_SESSION resolves */
 window.addEventListener('DOMContentLoaded',function(){
   var s=document.getElementById('shell');
   if(s) s.classList.add('locked');
+  // Keep modal hidden until we know the auth state
+  var modal=document.getElementById('startModal');
+  if(modal) modal.style.display='none';
 });
 </script>
 </head>
@@ -2074,6 +2077,8 @@ function _setShell(on){
 function _activateCoach(){
   localStorage.setItem('hci_coach_mode','1');
   window._pid=null;
+  // Sign out any Supabase player session to prevent mixing
+  _SB.auth.signOut().catch(()=>{});
   // Reset any disabled state on filter selects set by loginAsPlayer
   ['viewModePlayer','viewTeam','viewSeason','viewType','starPlayerSelect'].forEach(id=>{
     const el=document.getElementById(id);
@@ -2119,6 +2124,8 @@ function _deactivateCoach(){
 
 async function _loginPlayer(pid,name){
   console.log('[login] Logging in:', name, pid);
+  // Clear coach mode if active — sessions must not mix
+  localStorage.removeItem('hci_coach_mode');
   window._pid=pid;
   _setShell(true);
   document.getElementById('startModal').style.display='none';
@@ -2355,7 +2362,12 @@ _SB.auth.onAuthStateChange(async(event, session)=>{
     // Page load — this fires first with restored session or null
     await _loadDB();
 
-    if(localStorage.getItem('hci_coach_mode')==='1'){
+    const isCoachMode = localStorage.getItem('hci_coach_mode')==='1';
+
+    // If both coach mode and player session exist, player session wins
+    // (means player logged in after coach, so coach mode is stale)
+    if(isCoachMode && !session?.user){
+      // Coach mode, no player session — activate coach
       _activateCoach();
       _initDone = true;
       return;
@@ -2407,6 +2419,16 @@ _SB.auth.onAuthStateChange(async(event, session)=>{
     _logoutPlayer();
   }
 });
+
+// Safety fallback: if INITIAL_SESSION doesn't fire within 4 seconds, show modal
+setTimeout(function(){
+  if(!_initDone){
+    console.warn('[auth] INITIAL_SESSION timeout — showing modal');
+    _setShell(false);
+    document.getElementById('startModal').style.display='flex';
+    _initDone = true;
+  }
+}, 4000);
 
 // Handle magic link URL hash — show loading screen
 if(window.location.hash && window.location.hash.includes('access_token')){
