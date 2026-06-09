@@ -1147,7 +1147,7 @@ async function _loadDB(){
   window._baseRefreshChart = function _baseRefreshChart(){
     const canvas = document.getElementById("progressChart");
     const ctx = canvas.getContext("2d");
-    const playerId = document.getElementById("viewModePlayer").value;
+    const playerId = document.getElementById("viewModePlayer").value || window._pid || '';
     const metric = document.getElementById("metricSelect").value;
     if(!playerId || !DATA.players[playerId]){
       window._destroyChart();
@@ -1160,7 +1160,7 @@ async function _loadDB(){
       return (order[a.type] ?? 1) - (order[b.type] ?? 1);
     });
 
-    window._destroyChart(); progressChart = null;
+    window._destroyChart();
 
     const labels = [], data = [];
     tests.forEach(t=>{
@@ -1169,9 +1169,9 @@ async function _loadDB(){
       labels.push(`${t.season} ${t.type}`);
       data.push(val);
     });
-    progressChart = new Chart(ctx, {
+    window.progressChart = new Chart(ctx, {
       type:"line",
-      data:{ labels, datasets:[{ label: metricLabel(metric), data, borderColor:"#f28c1b", backgroundColor:"rgba(242,140,27,0.15)", tension:.25, pointRadius:4, pointBackgroundColor:"#0b3c7d", pointBorderColor:"#fff", pointBorderWidth:2 }]},
+      data:{ labels, datasets:[{ label: metricLabel(metric), data, borderColor:"#e8621a", backgroundColor:"rgba(232,98,26,0.12)", tension:.25, pointRadius:5, pointBackgroundColor:"#e8621a", pointBorderColor:"#fff", pointBorderWidth:2 }]},
       options: baseChartOptions()
     });
   }
