@@ -17,18 +17,18 @@
 <style>
 
 :root{
-  --ink:#0d1520;--ink2:#2a3d50;--muted:#6a808e;
-  --navy:#0a1628;--navy2:#122038;--navy3:#1a2e44;
-  --orange:#e8621a;--orange2:#f47534;--orange-a:rgba(232,98,26,.12);
-  --ice:#f3f6fa;--ice2:#e6eef5;--ice3:#d8e6f0;
-  --border:#c4d4e2;--card:#fff;
-  --good:#177040;--good-bg:#d5f0e0;
-  --ok:#8a6000;--ok-bg:#fef0c0;
+  --ink:#0c1f3d;--ink2:#1f3257;--muted:#6b7a92;
+  --navy:#0c1f3d;--navy2:#15294d;--navy3:#1f3257;
+  --orange:#ee6c1f;--orange2:#ff8132;--orange-a:rgba(238,108,31,.1);
+  --ice:#eef1f5;--ice2:#dde3eb;--ice3:#c5cfdc;
+  --border:#d1d8e2;--card:#fff;
+  --good:#1a7a3e;--good-bg:#dff0e3;
+  --ok:#8a5d00;--ok-bg:#fef0c0;
   --bad:#9a1515;--bad-bg:#fde0e0;
-  --r:10px;--r2:14px;--sh:0 1px 6px rgba(10,22,40,.08),0 4px 16px rgba(10,22,40,.05);
-  --hci-blue:#0a1628;--hci-blue-strong:#1a2e44;--hci-orange:#e8621a;
-  --hci-bg:#f3f6fa;--hci-card:#fff;--hci-border:#c4d4e2;
-  --hci-text:#0d1520;--hci-muted:#6a808e;--hci-success:#177040;
+  --r:4px;--r2:6px;--sh:0 1px 3px rgba(12,31,61,.06),0 2px 8px rgba(12,31,61,.04);
+  --hci-blue:#0c1f3d;--hci-blue-strong:#15294d;--hci-orange:#ee6c1f;
+  --hci-bg:#eef1f5;--hci-card:#fff;--hci-border:#d1d8e2;
+  --hci-text:#0c1f3d;--hci-muted:#6b7a92;--hci-success:#1a7a3e;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{font-size:16px;-webkit-text-size-adjust:100%}
@@ -70,7 +70,7 @@ body{font-family:'Barlow',system-ui,sans-serif;background:var(--ice);color:var(-
 .page.active{display:block}
 
 /*  CARDS  */
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r2);padding:18px;margin-bottom:16px;box-shadow:var(--sh)}
+.card{background:var(--card);border:none;border-radius:var(--r2);padding:22px;margin-bottom:14px;box-shadow:var(--sh)}
 .card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--ice2)}
 .card-hd h2{font-family:'Bebas Neue',sans-serif;font-size:.98rem;letter-spacing:.15em;color:var(--ink);text-transform:uppercase}
 .card-hd .actions{display:flex;gap:8px;align-items:center}
@@ -217,8 +217,12 @@ tr:hover td{background:var(--ice)}
 
 /* Checkboxes */
 input[type=checkbox]{
-  width:16px!important;height:16px;accent-color:var(--orange);
-  border:1.5px solid var(--border);border-radius:3px;cursor:pointer;flex-shrink:0;
+  width:18px!important;height:18px;
+  cursor:pointer;flex-shrink:0;
+  accent-color:var(--orange);
+  margin:0;
+  -webkit-appearance:checkbox;
+  appearance:checkbox;
 }
 @media(max-width:640px){
   .modal-cards{flex-direction:column}
@@ -542,12 +546,33 @@ window.addEventListener('DOMContentLoaded',function(){
       <!-- Testresultate -->
       <div class="card">
         <div class="card-hd"><h2>Testresultate verwalten</h2></div>
-        <div class="frow" style="align-items:flex-end;max-width:500px;margin-bottom:12px">
-          <div class="fg w">
+        <div class="frow" style="align-items:flex-end;gap:8px;margin-bottom:12px">
+          <div class="fg" style="flex:1;min-width:140px">
             <label for="delTestPlayerSel">Spieler</label>
-            <select id="delTestPlayerSel"><option value="">— Spieler wählen —</option></select>
+            <select id="delTestPlayerSel"><option value="ALL">— Alle Spieler —</option></select>
           </div>
-          <button class="btn btn-ghost btn-sm" id="loadTestsBtn">Laden</button>
+          <div class="fg" style="flex:1;min-width:120px">
+            <label for="delTestTeamSel">Team</label>
+            <select id="delTestTeamSel">
+              <option value="ALL">Alle</option>
+              <option value="U18">U18</option>
+              <option value="U21">U21</option>
+            </select>
+          </div>
+          <div class="fg" style="flex:1;min-width:120px">
+            <label for="delTestSeasonSel">Saison</label>
+            <select id="delTestSeasonSel"><option value="ALL">Alle</option></select>
+          </div>
+          <div class="fg" style="flex:1;min-width:140px">
+            <label for="delTestTypeSel">Kategorie</label>
+            <select id="delTestTypeSel">
+              <option value="ALL">Alle</option>
+              <option value="Einstiegstest">Einstiegstest</option>
+              <option value="Schlusstest">Schlusstest</option>
+              <option value="Sonstiger">Sonstiger</option>
+            </select>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="loadTestsBtn">Filtern</button>
         </div>
         <div id="testManageList"></div>
       </div>
@@ -1297,10 +1322,6 @@ async function _loadDB(){
           <label class="smart-label">SMART Ziel ${el.title}</label>
           <div class="smart-desc">SMART Ziel: Specific, Measurable, Achievable, Relevant, Time‑bound. Formuliere ein konkretes Ziel mit Messbarkeit und Frist.</div>
           <textarea name="${el.id}_smart" data-field="${el.id}_smart" placeholder="SMART Ziel hier eintragen"></textarea>
-        </div>
-        <div class="coach-only" data-coach-only>
-          <label>Trainerkommentar ${el.title}</label>
-          <textarea name="${el.id}_coach_comment" data-field="${el.id}_coach_comment" placeholder="Valmentajan kommentti"></textarea>
         </div>
       `;
       html += `</section>`;
