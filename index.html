@@ -2607,77 +2607,120 @@ function _renderStarSummary(hist, older){
 
 function _populateDelSelects(){
   const players = Object.values(DATA.players).sort((a,b)=>a.name.localeCompare(b.name));
-  const opts = '<option value="">— Spieler wählen —</option>' +
+  const optsTest = '<option value="ALL">— Alle Spieler —</option>' +
+    players.map(p=>`<option value="${p.id}">${p.name} (${p.team})</option>`).join('');
+  const optsOther = '<option value="">— Spieler wählen —</option>' +
     players.map(p=>`<option value="${p.id}">${p.name} (${p.team})</option>`).join('');
   const s1 = document.getElementById('delTestPlayerSel');
   const s2 = document.getElementById('delStarPlayerSel');
   const s3 = document.getElementById('delFqPlayerSel');
-  if(s1) s1.innerHTML = opts;
-  if(s2) s2.innerHTML = opts;
-  if(s3) s3.innerHTML = opts;
+  if(s1) s1.innerHTML = optsTest;
+  if(s2) s2.innerHTML = optsOther;
+  if(s3) s3.innerHTML = optsOther;
+  if(typeof _populateDelTestSeasonSel === 'function') _populateDelTestSeasonSel();
 }
 
-function _renderTestManageList(pid){
+function _renderTestManageList(){
   const container = document.getElementById('testManageList');
   if(!container) return;
-  const p = DATA.players[pid];
-  if(!p || !p.tests.length){
-    container.innerHTML = '<p class="info">Keine Testresultate gefunden.</p>';
+
+  const pid = document.getElementById('delTestPlayerSel')?.value || 'ALL';
+  const team = document.getElementById('delTestTeamSel')?.value || 'ALL';
+  const season = document.getElementById('delTestSeasonSel')?.value || 'ALL';
+  const type = document.getElementById('delTestTypeSel')?.value || 'ALL';
+
+  // Collect filtered tests across all players
+  const rows = [];
+  Object.values(DATA.players).forEach(p=>{
+    if(pid !== 'ALL' && pid !== '' && p.id !== pid) return;
+    if(team !== 'ALL' && p.team !== team) return;
+    (p.tests||[]).forEach(t=>{
+      if(season !== 'ALL' && t.season !== season) return;
+      if(type !== 'ALL' && t.type !== type) return;
+      rows.push({player:p, test:t});
+    });
+  });
+
+  if(!rows.length){
+    container.innerHTML = '<p class="info">Keine Testresultate für diese Filter.</p>';
     return;
   }
-  // Sort by season desc — use stable dbId as unique key, not array index
-  const tests = [...p.tests].sort((a,b)=>(b.season||'').localeCompare(a.season||''));
+
+  // Sort: team, season desc, type, name
+  const TYPE_ORDER = {Einstiegstest:0,Sonstiger:1,Schlusstest:2};
+  rows.sort((a,b)=>{
+    if(a.player.team !== b.player.team) return a.player.team.localeCompare(b.player.team);
+    if(a.test.season !== b.test.season) return (b.test.season||'').localeCompare(a.test.season||'');
+    const tt = (TYPE_ORDER[a.test.type]??9) - (TYPE_ORDER[b.test.type]??9);
+    if(tt !== 0) return tt;
+    return a.player.name.localeCompare(b.player.name);
+  });
 
   container.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <label style="display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--muted);cursor:pointer;font-family:'Barlow',sans-serif;text-transform:none;letter-spacing:0">
-        <input type="checkbox" id="selectAllTests" style="width:auto"/> Alle auswählen
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:8px;font-size:.86rem;color:var(--ink2);cursor:pointer">
+        <input type="checkbox" id="selectAllTests"/>
+        <span>Alle auswählen (${rows.length})</span>
       </label>
       <button class="btn btn-danger btn-sm" id="deleteSelectedTests">Ausgewählte löschen</button>
     </div>
     <div class="tbl-wrap">
-    <table>
-      <thead><tr>
-        <th style="width:32px"></th>
-        <th>Saison</th><th>Kategorie</th><th>Yo-Yo</th>
-        <th>Rumpfstabi</th><th>Liegestütz</th><th>Klimmzüge</th><th>5er Hupf</th>
-      </tr></thead>
-      <tbody>
-        ${tests.map(t=>`<tr>
-          <td><input type="checkbox" class="test-chk" data-dbid="${t.dbId||''}" style="width:auto"/></td>
-          <td>${t.season||'—'}</td>
-          <td>${t.type||'—'}</td>
-          <td>${t.yoYo??'—'}</td>
-          <td>${t.core??'—'}</td>
-          <td>${t.pushups??'—'}</td>
-          <td>${t.pullups??'—'}</td>
-          <td>${t.hupf!=null?Number(t.hupf).toFixed(2):'—'}</td>
-        </tr>`).join('')}
-      </tbody>
-    </table>
+      <table>
+        <thead><tr>
+          <th style="width:36px"></th>
+          <th>Team</th><th>Spieler</th><th>Saison</th><th>Kategorie</th>
+          <th>Yo-Yo</th><th>Rumpf</th><th>Liegest.</th><th>Klimm.</th><th>Hupf</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map(r=>`<tr>
+            <td><input type="checkbox" class="test-chk" data-dbid="${r.test.dbId||''}"/></td>
+            <td>${r.player.team}</td>
+            <td>${r.player.name}</td>
+            <td>${r.test.season||'—'}</td>
+            <td>${r.test.type||'—'}</td>
+            <td>${r.test.yoYo??'—'}</td>
+            <td>${r.test.core??'—'}</td>
+            <td>${r.test.pushups??'—'}</td>
+            <td>${r.test.pullups??'—'}</td>
+            <td>${r.test.hupf!=null?Number(r.test.hupf).toFixed(2):'—'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
     </div>`;
 
-  // Select all toggle
-  document.getElementById('selectAllTests').addEventListener('change', e=>{
+  document.getElementById('selectAllTests').addEventListener('change',e=>{
     container.querySelectorAll('.test-chk').forEach(c=>c.checked=e.target.checked);
   });
 
-  // Delete selected
   document.getElementById('deleteSelectedTests').addEventListener('click', async()=>{
     const checked = [...container.querySelectorAll('.test-chk:checked')];
     if(!checked.length){ alert('Bitte mindestens einen Eintrag auswählen.'); return; }
     const dbIds = checked.map(c=>c.dataset.dbid).filter(Boolean);
     if(!confirm(`${checked.length} Testresultat(e) wirklich löschen?`)) return;
-    // Delete from Supabase by dbId (safe — never deletes wrong row)
     for(const dbId of dbIds){
       const {error} = await _SB.from('tests').delete().eq('id', dbId);
       if(error){ alert('Fehler beim Löschen: '+error.message); return; }
     }
-    // Remove from local DATA by dbId
-    p.tests = p.tests.filter(t=>!dbIds.includes(t.dbId));
+    // Remove from local DATA
+    Object.values(DATA.players).forEach(p=>{
+      p.tests = (p.tests||[]).filter(t=>!dbIds.includes(t.dbId));
+    });
     refreshAllViews();
-    _renderTestManageList(pid);
+    _renderTestManageList();
   });
+}
+
+function _populateDelTestSeasonSel(){
+  const sel = document.getElementById('delTestSeasonSel');
+  if(!sel) return;
+  const seasons = new Set();
+  Object.values(DATA.players).forEach(p=>{
+    (p.tests||[]).forEach(t=>{ if(t.season) seasons.add(t.season); });
+  });
+  const cur = sel.value;
+  sel.innerHTML = '<option value="ALL">Alle</option>' +
+    [...seasons].sort().reverse().map(s=>`<option value="${s}">${s}</option>`).join('');
+  if([...seasons].includes(cur)) sel.value = cur;
 }
 
 async function _renderStarManageList(pid){
@@ -2743,9 +2786,11 @@ async function _renderStarManageList(pid){
 
 // Wire up load buttons
 document.getElementById('loadTestsBtn')?.addEventListener('click',()=>{
-  const pid = document.getElementById('delTestPlayerSel').value;
-  if(!pid){ alert('Bitte Spieler wählen.'); return; }
-  _renderTestManageList(pid);
+  _renderTestManageList();
+});
+// Auto-refresh when any filter changes
+['delTestPlayerSel','delTestTeamSel','delTestSeasonSel','delTestTypeSel'].forEach(id=>{
+  document.getElementById(id)?.addEventListener('change',()=>_renderTestManageList());
 });
 
 document.getElementById('loadStarProfilesBtn')?.addEventListener('click',()=>{
