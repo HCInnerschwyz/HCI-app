@@ -2669,6 +2669,7 @@ function _renderTestManageList(){
         <thead><tr>
           <th style="width:36px"></th>
           <th>Team</th><th>Spieler</th><th>Saison</th><th>Kategorie</th>
+          <th>Grösse</th><th>Gewicht</th>
           <th>Yo-Yo</th><th>Rumpf</th><th>Liegest.</th><th>Klimm.</th><th>Hupf</th>
         </tr></thead>
         <tbody>
@@ -2678,6 +2679,8 @@ function _renderTestManageList(){
             <td>${r.player.name}</td>
             <td>${r.test.season||'—'}</td>
             <td>${r.test.type||'—'}</td>
+            <td>${r.test.groesse??'—'}</td>
+            <td>${r.test.gewicht!=null?Number(r.test.gewicht).toFixed(1):'—'}</td>
             <td>${r.test.yoYo??'—'}</td>
             <td>${r.test.core??'—'}</td>
             <td>${r.test.pushups??'—'}</td>
