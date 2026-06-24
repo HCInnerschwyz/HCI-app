@@ -185,6 +185,10 @@ tr:hover td{background:var(--ice)}
 .pill-toggle{display:inline-flex;border-radius:var(--r);border:1px solid var(--border);overflow:hidden}
 .pill-toggle button{border:none;padding:6px 14px;font-family:'Bebas Neue',sans-serif;font-size:.76rem;letter-spacing:.1em;background:transparent;color:var(--muted);cursor:pointer;text-transform:uppercase}
 .pill-toggle button.active{background:var(--navy);color:#fff}
+.thresholds-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.yt-wrap{position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:var(--r);background:#000;margin-top:6px}
+.yt-wrap iframe{position:absolute;top:0;left:0;width:100%;height:100%}
+@media(max-width:680px){.thresholds-grid{grid-template-columns:1fr}}
 .fq-item{margin-bottom:16px}
 .fq-label{display:block;font-family:'Bebas Neue',sans-serif;font-size:.78rem;letter-spacing:.12em;
   color:var(--ink);text-transform:uppercase;margin-bottom:6px}
@@ -285,6 +289,8 @@ window.addEventListener('DOMContentLoaded',function(){
     <button class="nav-btn active" data-pg="pgTests">Physische Tests</button>
     <button class="nav-btn" data-pg="pgStar">STAR Profil</button>
     <button class="nav-btn" data-pg="pgFragebogen">Fragebogen</button>
+    <button class="nav-btn" data-pg="pgTrainings">Trainings</button>
+    <button class="nav-btn" data-pg="pgTrainingsbuch">Trainingsbuch</button>
     <button class="nav-btn" data-pg="pgTrainer">Trainer</button>
   </div>
 
@@ -346,6 +352,44 @@ window.addEventListener('DOMContentLoaded',function(){
           <thead><tr><th>Team</th><th>Saison</th><th>Spieler</th><th>Kategorie</th><th>Grösse</th><th>Gewicht</th><th>Yo-Yo</th><th>Rumpfstabi</th><th>Liegestütz</th><th>Klimmzüge</th><th>5er Hupf</th></tr></thead>
           <tbody></tbody>
         </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd"><h2>Zielwerte</h2>
+        <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="badge green">Gut</span><span class="badge yellow">Genügend</span><span class="badge red">Ungenügend</span></div>
+      </div>
+      <div class="thresholds-grid">
+        <div>
+          <div class="sec" style="margin-top:0">U18</div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Test</th><th>Ungenügend</th><th>Genügend</th><th>Gut</th></tr></thead>
+              <tbody>
+                <tr><td>Yo-Yo [m]</td><td>≤ 679</td><td>680 – 1199</td><td>≥ 1200</td></tr>
+                <tr><td>Rumpfstabi [sec]</td><td>≤ 104</td><td>105 – 164</td><td>≥ 165</td></tr>
+                <tr><td>Liegestütz</td><td>≤ 44</td><td>45 – 64</td><td>≥ 65</td></tr>
+                <tr><td>Klimmzüge</td><td>≤ 6</td><td>7 – 9</td><td>≥ 10</td></tr>
+                <tr><td>5er Hupf [m]</td><td>≤ 10.99</td><td>11.00 – 11.99</td><td>≥ 12.00</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <div class="sec" style="margin-top:0">U21</div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Test</th><th>Ungenügend</th><th>Genügend</th><th>Gut</th></tr></thead>
+              <tbody>
+                <tr><td>Yo-Yo [m]</td><td>≤ 999</td><td>1000 – 1519</td><td>≥ 1520</td></tr>
+                <tr><td>Rumpfstabi [sec]</td><td>≤ 119</td><td>120 – 179</td><td>≥ 180</td></tr>
+                <tr><td>Liegestütz</td><td>≤ 59</td><td>60 – 79</td><td>≥ 80</td></tr>
+                <tr><td>Klimmzüge</td><td>≤ 8</td><td>9 – 11</td><td>≥ 12</td></tr>
+                <tr><td>5er Hupf [m]</td><td>≤ 11.99</td><td>12.00 – 12.99</td><td>≥ 13.00</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -484,6 +528,97 @@ window.addEventListener('DOMContentLoaded',function(){
     <div id="fqSummary"></div>
   </div>
 
+
+
+  <!-- TRAININGS (coach programs visible to all) -->
+  <div id="pgTrainings" class="page">
+    <div class="card">
+      <div class="card-hd"><h2>Trainingsprogramme</h2></div>
+      <div class="frow" style="align-items:flex-end;margin-bottom:14px;gap:8px;flex-wrap:wrap">
+        <div class="fg" style="flex:1;min-width:140px">
+          <label for="tpFilterCategory">Kategorie</label>
+          <select id="tpFilterCategory">
+            <option value="ALL">Alle</option>
+            <option value="Kraft">Kraft</option>
+            <option value="Schnelligkeit">Schnelligkeit</option>
+            <option value="Explosivität">Explosivität</option>
+            <option value="Ausdauer">Ausdauer</option>
+            <option value="Koordination">Koordination</option>
+            <option value="Eis">Eis</option>
+          </select>
+        </div>
+        <div class="fg" style="flex:1;min-width:140px">
+          <label for="tpFilterTeam">Team</label>
+          <select id="tpFilterTeam">
+            <option value="ALL">Alle</option>
+            <option value="U18">U18</option>
+            <option value="U21">U21</option>
+            <option value="BEIDE">Beide</option>
+          </select>
+        </div>
+      </div>
+      <div id="tpList"></div>
+    </div>
+  </div>
+
+  <!-- TRAININGSBUCH (player log) -->
+  <div id="pgTrainingsbuch" class="page">
+    <div class="card">
+      <div class="card-hd">
+        <h2>Trainingsbuch</h2>
+        <button class="btn btn-primary btn-sm" id="newLogEntryBtn">Neuer Eintrag</button>
+      </div>
+      <div class="frow" style="align-items:flex-end;margin-bottom:0;gap:8px;flex-wrap:wrap">
+        <div class="fg" style="flex:1;min-width:140px" id="tlPlayerSelWrap">
+          <label for="tlPlayerSel">Spieler</label>
+          <select id="tlPlayerSel"></select>
+        </div>
+      </div>
+    </div>
+    <div id="tlEditorCard" class="card hidden">
+      <div class="card-hd">
+        <h2 id="tlEditorTitle">Neuer Eintrag</h2>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" id="tlCancelBtn">Abbrechen</button>
+          <button class="btn btn-primary btn-sm" id="tlSaveBtn">Speichern</button>
+        </div>
+      </div>
+      <div class="frow" style="gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <div class="fg" style="flex:1;min-width:140px">
+          <label for="tlTitle">Titel</label>
+          <input type="text" id="tlTitle" placeholder="z.B. Krafttraining Oberkörper"/>
+        </div>
+        <div class="fg" style="flex:1;min-width:120px">
+          <label for="tlDate">Datum</label>
+          <input type="date" id="tlDate"/>
+        </div>
+        <div class="fg" style="flex:1;min-width:120px">
+          <label for="tlCategory">Kategorie</label>
+          <select id="tlCategory">
+            <option value="Kraft">Kraft</option>
+            <option value="Schnelligkeit">Schnelligkeit</option>
+            <option value="Explosivität">Explosivität</option>
+            <option value="Ausdauer">Ausdauer</option>
+            <option value="Koordination">Koordination</option>
+            <option value="Eis">Eis</option>
+          </select>
+        </div>
+      </div>
+      <div class="fg" style="margin-bottom:10px">
+        <label for="tlProgramSel">Vorlage aus Trainingsprogramm (optional)</label>
+        <select id="tlProgramSel"><option value="">— Keine —</option></select>
+      </div>
+      <div class="sec">Übungen</div>
+      <div id="tlExercises"></div>
+      <button type="button" class="btn btn-ghost btn-sm" id="tlAddExerciseBtn" style="margin-top:8px">+ Übung hinzufügen</button>
+      <div class="fg" style="margin-top:14px">
+        <label for="tlNotes">Notizen zum Training</label>
+        <textarea id="tlNotes" rows="2" placeholder="z.B. Wie hat es sich angefühlt?"></textarea>
+      </div>
+    </div>
+    <div id="tlList"></div>
+  </div>
+
   <!--  TRAINER  -->
   <div id="pgTrainer" class="page">
     <div class="card" id="trainerLoginCard">
@@ -619,6 +754,55 @@ window.addEventListener('DOMContentLoaded',function(){
         </div>
         <div id="fqManageList"></div>
       </div>
+
+      <div class="card">
+        <div class="card-hd">
+          <h2>Trainingsprogramme verwalten</h2>
+          <button class="btn btn-primary btn-sm" id="newProgramBtn">Neues Programm</button>
+        </div>
+        <div id="tpEditorCard" class="hidden" style="background:var(--ice);padding:14px;border-radius:var(--r2);margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <h3 id="tpEditorTitle" style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--navy)">Neues Programm</h3>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-ghost btn-sm" id="tpCancelBtn">Abbrechen</button>
+              <button class="btn btn-primary btn-sm" id="tpSaveBtn">Speichern</button>
+            </div>
+          </div>
+          <div class="frow" style="gap:10px;flex-wrap:wrap;margin-bottom:10px">
+            <div class="fg" style="flex:2;min-width:160px">
+              <label for="tpTitle">Titel</label>
+              <input type="text" id="tpTitle" placeholder="z.B. Oberkörper-Krafttraining"/>
+            </div>
+            <div class="fg" style="flex:1;min-width:120px">
+              <label for="tpCategory">Kategorie</label>
+              <select id="tpCategory">
+                <option value="Kraft">Kraft</option>
+                <option value="Schnelligkeit">Schnelligkeit</option>
+                <option value="Explosivität">Explosivität</option>
+                <option value="Ausdauer">Ausdauer</option>
+                <option value="Koordination">Koordination</option>
+                <option value="Eis">Eis</option>
+              </select>
+            </div>
+            <div class="fg" style="flex:1;min-width:100px">
+              <label for="tpTeam">Team</label>
+              <select id="tpTeam">
+                <option value="BEIDE">Beide</option>
+                <option value="U18">U18</option>
+                <option value="U21">U21</option>
+              </select>
+            </div>
+          </div>
+          <div class="fg" style="margin-bottom:10px">
+            <label for="tpDesc">Beschreibung</label>
+            <textarea id="tpDesc" rows="2" placeholder="Allgemeine Hinweise zum Programm..."></textarea>
+          </div>
+          <div class="sec">Übungen</div>
+          <div id="tpExercises"></div>
+          <button type="button" class="btn btn-ghost btn-sm" id="tpAddExerciseBtn" style="margin-top:8px">+ Übung hinzufügen</button>
+        </div>
+        <div id="tpManageList"></div>
+      </div>
     </div>
   </div>
 </div><!-- /shell -->
@@ -746,6 +930,60 @@ window._DB = {
     const {data}=await _SB.from('fragebogen_responses').select('id,version,saved_at,data')
       .eq('player_id',pid).order('saved_at',{ascending:false});
     return data||[];
+  },
+  // ── Training programs (coach-created) ──
+  async loadTrainingPrograms(){
+    const {data}=await _SB.from('training_programs').select('*').order('created_at',{ascending:false});
+    return data||[];
+  },
+  async saveTrainingProgram(program){
+    if(program.id){
+      const {error}=await _SB.from('training_programs').update({
+        title:program.title, category:program.category, team:program.team,
+        description:program.description, exercises:program.exercises
+      }).eq('id',program.id);
+      if(error) throw error;
+      return program.id;
+    } else {
+      const {data,error}=await _SB.from('training_programs').insert({
+        title:program.title, category:program.category, team:program.team,
+        description:program.description, exercises:program.exercises
+      }).select('id');
+      if(error) throw error;
+      return data&&data[0]?data[0].id:null;
+    }
+  },
+  async deleteTrainingProgram(id){
+    const {error}=await _SB.from('training_programs').delete().eq('id',id);
+    if(error) throw error;
+  },
+  // ── Training log (player diary) ──
+  async loadTrainingLog(pid){
+    const {data}=await _SB.from('training_log').select('*')
+      .eq('player_id',pid).order('log_date',{ascending:false});
+    return data||[];
+  },
+  async saveTrainingLogEntry(entry){
+    if(entry.id){
+      const {error}=await _SB.from('training_log').update({
+        log_date:entry.log_date, title:entry.title, category:entry.category,
+        program_id:entry.program_id, exercises:entry.exercises, notes:entry.notes
+      }).eq('id',entry.id);
+      if(error) throw error;
+      return entry.id;
+    } else {
+      const {data,error}=await _SB.from('training_log').insert({
+        player_id:entry.player_id, log_date:entry.log_date, title:entry.title,
+        category:entry.category, program_id:entry.program_id||null,
+        exercises:entry.exercises, notes:entry.notes
+      }).select('id');
+      if(error) throw error;
+      return data&&data[0]?data[0].id:null;
+    }
+  },
+  async deleteTrainingLogEntry(id){
+    const {error}=await _SB.from('training_log').delete().eq('id',id);
+    if(error) throw error;
   }
 };
 
@@ -2140,6 +2378,7 @@ function _activateCoach(){
   _refreshManualSel();
   _populateDelSelects&&_populateDelSelects();
   _fqPopulateSelect&&_fqPopulateSelect();
+  _populateTlPlayerSel&&_populateTlPlayerSel();
   refreshAllViews();
   const sps = document.getElementById('starPlayerSelect');
   if(sps && sps.options.length <= 1) _baseRefreshPS();
@@ -2199,7 +2438,10 @@ async function _loginPlayer(pid,name){
   const _piEl=document.getElementById('playerId'); if(_piEl) _piEl.value=pid;
   const _pdEl=document.getElementById('profileDate'); if(_pdEl) _pdEl.value=new Date().toISOString().slice(0,10);
   // Load STAR history after a short delay for DOM to settle
-  setTimeout(()=>{ _loadStarHistory(pid); },300);
+  setTimeout(()=>{
+    _loadStarHistory(pid);
+    if(typeof _populateTlPlayerSel === 'function'){ _populateTlPlayerSel(); _loadAndRenderLog&&_loadAndRenderLog(); }
+  },300);
 }
 
 function _logoutPlayer(){
@@ -2325,6 +2567,7 @@ document.getElementById('addPlayerBtn').addEventListener('click',async()=>{
     refreshAllViews(); window._renderPlayerList(); _refreshManualSel();
     _populateDelSelects&&_populateDelSelects();
   _fqPopulateSelect&&_fqPopulateSelect();
+  _populateTlPlayerSel&&_populateTlPlayerSel();
     alert(name+' hinzugefügt.');
   }catch(e){alert('Fehler: '+e.message);}
 });
@@ -3413,6 +3656,481 @@ window._safeRefreshChart = function(){
     window._baseRefreshChart();
   }
 }
+
+
+/* ══════════════════════════════════
+   TRAINING PROGRAMS (Coach view + read-only Trainings tab)
+══════════════════════════════════ */
+
+let _trainingPrograms = [];
+let _editingProgram = null;
+
+function _tpExerciseRow(ex, idx, isEditor){
+  if(isEditor){
+    return `<div class="tp-ex-row" data-idx="${idx}">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;background:#fff;padding:10px;border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px">
+        <div class="fg" style="flex:2;min-width:140px">
+          <label>Name der Übung</label>
+          <input type="text" class="tp-ex-name" value="${(ex.name||'').replace(/"/g,'&quot;')}" placeholder="z.B. Kniebeuge"/>
+        </div>
+        <div class="fg" style="flex:1;min-width:70px">
+          <label>Sätze</label>
+          <input type="number" class="tp-ex-sets" value="${ex.sets||''}" placeholder="3"/>
+        </div>
+        <div class="fg" style="flex:1;min-width:70px">
+          <label>Wdh.</label>
+          <input type="text" class="tp-ex-reps" value="${(ex.reps||'').replace(/"/g,'&quot;')}" placeholder="8-12"/>
+        </div>
+        <div class="fg" style="flex:2;min-width:160px">
+          <label>Video-Link (YouTube)</label>
+          <input type="url" class="tp-ex-video" value="${(ex.video||'').replace(/"/g,'&quot;')}" placeholder="https://youtube.com/..."/>
+        </div>
+        <div class="fg" style="flex:1 1 100%">
+          <label>Hinweise</label>
+          <input type="text" class="tp-ex-notes" value="${(ex.notes||'').replace(/"/g,'&quot;')}" placeholder="z.B. langsam ausführen"/>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm tp-ex-remove" style="align-self:flex-end">Entfernen</button>
+      </div>
+    </div>`;
+  }
+  // Read-only display
+  const videoId = _ytId(ex.video||'');
+  return `<div style="border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:10px;background:#fff">
+    <div style="font-weight:600;color:var(--navy);font-size:1rem;margin-bottom:4px">${ex.name||'—'}</div>
+    <div style="font-size:.86rem;color:var(--muted);margin-bottom:8px">
+      ${ex.sets?`<span>${ex.sets} Sätze</span>`:''}
+      ${ex.reps?` &middot; <span>${ex.reps} Wdh.</span>`:''}
+    </div>
+    ${ex.notes?`<div style="font-size:.86rem;color:var(--ink2);margin-bottom:8px;font-style:italic">${ex.notes}</div>`:''}
+    ${videoId
+      ? `<div class="yt-wrap"><iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen loading="lazy"></iframe></div>`
+      : (ex.video?`<a href="${ex.video}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">Video öffnen ↗</a>`:'')
+    }
+  </div>`;
+}
+
+function _ytId(url){
+  if(!url) return null;
+  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([\w-]{11})/);
+  return m ? m[1] : null;
+}
+
+async function _loadAndRenderPrograms(){
+  try{
+    _trainingPrograms = await window._DB.loadTrainingPrograms();
+  }catch(e){ console.error('loadPrograms',e); _trainingPrograms = []; }
+  _renderTrainingsListPublic();
+  _renderTpManageList();
+  _populateProgramSelect();
+}
+
+function _renderTrainingsListPublic(){
+  const container = document.getElementById('tpList');
+  if(!container) return;
+  const catFilter = document.getElementById('tpFilterCategory')?.value || 'ALL';
+  const teamFilter = document.getElementById('tpFilterTeam')?.value || 'ALL';
+  let progs = _trainingPrograms.filter(p=>{
+    if(catFilter !== 'ALL' && p.category !== catFilter) return false;
+    if(teamFilter !== 'ALL' && p.team !== teamFilter && p.team !== 'BEIDE') return false;
+    return true;
+  });
+  if(!progs.length){
+    container.innerHTML = '<p class="info">Keine Trainingsprogramme verfügbar.</p>';
+    return;
+  }
+  container.innerHTML = progs.map(p=>`
+    <div style="border:1px solid var(--border);border-radius:var(--r2);padding:16px;margin-bottom:12px;background:#fff">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+        <div>
+          <h3 style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--navy)">${p.title}</h3>
+          <div style="font-size:.78rem;color:var(--muted);margin-top:2px">
+            <span class="badge" style="background:var(--orange-a);color:var(--orange);font-weight:600">${p.category||'—'}</span>
+            <span style="margin-left:6px">${p.team==='BEIDE'?'U18 & U21':p.team}</span>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="_copyProgramToLog('${p.id}')">In Trainingsbuch übernehmen</button>
+      </div>
+      ${p.description?`<p style="margin-bottom:12px;color:var(--ink2);font-size:.9rem">${p.description}</p>`:''}
+      <div>${(p.exercises||[]).map((ex,i)=>_tpExerciseRow(ex,i,false)).join('')}</div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('tpFilterCategory')?.addEventListener('change', _renderTrainingsListPublic);
+document.getElementById('tpFilterTeam')?.addEventListener('change', _renderTrainingsListPublic);
+
+// ── Coach editor ──
+function _renderTpEditorExercises(){
+  const container = document.getElementById('tpExercises');
+  if(!container || !_editingProgram) return;
+  container.innerHTML = (_editingProgram.exercises||[]).map((ex,i)=>_tpExerciseRow(ex,i,true)).join('');
+  container.querySelectorAll('.tp-ex-row').forEach(row=>{
+    const idx = parseInt(row.dataset.idx);
+    row.querySelector('.tp-ex-name').addEventListener('input',e=>{_editingProgram.exercises[idx].name=e.target.value;});
+    row.querySelector('.tp-ex-sets').addEventListener('input',e=>{_editingProgram.exercises[idx].sets=e.target.value;});
+    row.querySelector('.tp-ex-reps').addEventListener('input',e=>{_editingProgram.exercises[idx].reps=e.target.value;});
+    row.querySelector('.tp-ex-video').addEventListener('input',e=>{_editingProgram.exercises[idx].video=e.target.value;});
+    row.querySelector('.tp-ex-notes').addEventListener('input',e=>{_editingProgram.exercises[idx].notes=e.target.value;});
+    row.querySelector('.tp-ex-remove').addEventListener('click',()=>{
+      _editingProgram.exercises.splice(idx,1);
+      _renderTpEditorExercises();
+    });
+  });
+}
+
+document.getElementById('newProgramBtn')?.addEventListener('click',()=>{
+  _editingProgram = {title:'', category:'Kraft', team:'BEIDE', description:'', exercises:[{name:'',sets:'',reps:'',video:'',notes:''}]};
+  document.getElementById('tpEditorTitle').textContent = 'Neues Programm';
+  document.getElementById('tpTitle').value = '';
+  document.getElementById('tpCategory').value = 'Kraft';
+  document.getElementById('tpTeam').value = 'BEIDE';
+  document.getElementById('tpDesc').value = '';
+  document.getElementById('tpEditorCard').classList.remove('hidden');
+  _renderTpEditorExercises();
+});
+
+document.getElementById('tpAddExerciseBtn')?.addEventListener('click',()=>{
+  if(!_editingProgram) return;
+  _editingProgram.exercises.push({name:'',sets:'',reps:'',video:'',notes:''});
+  _renderTpEditorExercises();
+});
+
+document.getElementById('tpCancelBtn')?.addEventListener('click',()=>{
+  _editingProgram = null;
+  document.getElementById('tpEditorCard').classList.add('hidden');
+});
+
+document.getElementById('tpSaveBtn')?.addEventListener('click', async()=>{
+  if(!_editingProgram) return;
+  _editingProgram.title = document.getElementById('tpTitle').value.trim();
+  _editingProgram.category = document.getElementById('tpCategory').value;
+  _editingProgram.team = document.getElementById('tpTeam').value;
+  _editingProgram.description = document.getElementById('tpDesc').value.trim();
+  if(!_editingProgram.title){ alert('Bitte Titel eingeben.'); return; }
+  if(!_editingProgram.exercises.length || !_editingProgram.exercises.some(e=>e.name)){
+    alert('Bitte mindestens eine Übung mit Namen eingeben.'); return;
+  }
+  const btn = document.getElementById('tpSaveBtn');
+  btn.disabled = true; btn.textContent = 'Speichern...';
+  try{
+    await window._DB.saveTrainingProgram(_editingProgram);
+    _editingProgram = null;
+    document.getElementById('tpEditorCard').classList.add('hidden');
+    await _loadAndRenderPrograms();
+    alert('Programm gespeichert.');
+  } catch(e){
+    alert('Fehler: '+e.message);
+  }
+  btn.disabled = false; btn.textContent = 'Speichern';
+});
+
+function _renderTpManageList(){
+  const container = document.getElementById('tpManageList');
+  if(!container) return;
+  if(!_trainingPrograms.length){
+    container.innerHTML = '<p class="info">Noch keine Programme erstellt.</p>';
+    return;
+  }
+  container.innerHTML = `<div class="tbl-wrap"><table>
+    <thead><tr><th>Titel</th><th>Kategorie</th><th>Team</th><th>Übungen</th><th></th></tr></thead>
+    <tbody>
+      ${_trainingPrograms.map(p=>`<tr>
+        <td>${p.title}</td>
+        <td>${p.category||'—'}</td>
+        <td>${p.team||'—'}</td>
+        <td>${(p.exercises||[]).length}</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" data-edit="${p.id}">Bearbeiten</button>
+          <button class="btn btn-danger btn-sm" data-del="${p.id}">Löschen</button>
+        </td>
+      </tr>`).join('')}
+    </tbody>
+  </table></div>`;
+
+  container.querySelectorAll('[data-edit]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const p = _trainingPrograms.find(x=>x.id===btn.dataset.edit);
+      if(!p) return;
+      _editingProgram = { id:p.id, title:p.title, category:p.category, team:p.team,
+        description:p.description, exercises: JSON.parse(JSON.stringify(p.exercises||[])) };
+      document.getElementById('tpEditorTitle').textContent = 'Programm bearbeiten';
+      document.getElementById('tpTitle').value = p.title;
+      document.getElementById('tpCategory').value = p.category||'Kraft';
+      document.getElementById('tpTeam').value = p.team||'BEIDE';
+      document.getElementById('tpDesc').value = p.description||'';
+      document.getElementById('tpEditorCard').classList.remove('hidden');
+      _renderTpEditorExercises();
+    });
+  });
+
+  container.querySelectorAll('[data-del]').forEach(btn=>{
+    btn.addEventListener('click', async()=>{
+      if(!confirm('Programm wirklich löschen?')) return;
+      try{
+        await window._DB.deleteTrainingProgram(btn.dataset.del);
+        await _loadAndRenderPrograms();
+      } catch(e){ alert('Fehler: '+e.message); }
+    });
+  });
+}
+
+/* ══════════════════════════════════
+   TRAININGSBUCH (Player diary)
+══════════════════════════════════ */
+
+let _trainingLogEntries = [];
+let _editingLogEntry = null;
+let _currentLogPlayerId = null;
+
+function _populateTlPlayerSel(){
+  const sel = document.getElementById('tlPlayerSel');
+  const wrap = document.getElementById('tlPlayerSelWrap');
+  if(!sel) return;
+  if(window._pid){
+    // Player view: lock to own
+    const p = DATA.players[window._pid];
+    sel.innerHTML = p?`<option value="${window._pid}">${p.name}</option>`:'';
+    sel.value = window._pid;
+    sel.disabled = true;
+    _currentLogPlayerId = window._pid;
+  } else {
+    // Coach view: show all
+    const players = Object.values(DATA.players).sort((a,b)=>a.name.localeCompare(b.name));
+    sel.innerHTML = '<option value="">— Spieler wählen —</option>' +
+      players.map(p=>`<option value="${p.id}">${p.name} (${p.team})</option>`).join('');
+    sel.disabled = false;
+  }
+}
+
+document.getElementById('tlPlayerSel')?.addEventListener('change', e=>{
+  _currentLogPlayerId = e.target.value;
+  if(_currentLogPlayerId) _loadAndRenderLog();
+  else document.getElementById('tlList').innerHTML = '';
+});
+
+function _populateProgramSelect(){
+  const sel = document.getElementById('tlProgramSel');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">— Keine —</option>' +
+    _trainingPrograms.map(p=>`<option value="${p.id}">${p.title} (${p.category||'?'})</option>`).join('');
+}
+
+document.getElementById('tlProgramSel')?.addEventListener('change', e=>{
+  if(!_editingLogEntry || !e.target.value){ return; }
+  const prog = _trainingPrograms.find(p=>p.id===e.target.value);
+  if(!prog) return;
+  if(_editingLogEntry.exercises.length && !confirm('Bestehende Übungen mit Programm überschreiben?')) return;
+  // Copy exercises from program, add weight/notes fields
+  _editingLogEntry.exercises = (prog.exercises||[]).map(ex=>({
+    name: ex.name, sets: ex.sets, reps: ex.reps,
+    video: ex.video, notes_template: ex.notes,
+    weight: '', actual_reps: '', notes: ''
+  }));
+  _editingLogEntry.title = prog.title;
+  _editingLogEntry.category = prog.category;
+  _editingLogEntry.program_id = prog.id;
+  document.getElementById('tlTitle').value = prog.title;
+  document.getElementById('tlCategory').value = prog.category||'Sonstiges';
+  _renderTlExercises();
+});
+
+window._copyProgramToLog = function(programId){
+  const prog = _trainingPrograms.find(p=>p.id===programId);
+  if(!prog) return;
+  // Switch to trainingsbuch tab
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelector('[data-pg="pgTrainingsbuch"]')?.classList.add('active');
+  document.getElementById('pgTrainingsbuch')?.classList.add('active');
+  // Open new entry with program pre-loaded
+  _editingLogEntry = {
+    log_date: new Date().toISOString().slice(0,10),
+    title: prog.title,
+    category: prog.category||'Sonstiges',
+    program_id: prog.id,
+    exercises: (prog.exercises||[]).map(ex=>({
+      name: ex.name, sets: ex.sets, reps: ex.reps,
+      video: ex.video, notes_template: ex.notes,
+      weight: '', actual_reps: '', notes: ''
+    })),
+    notes: ''
+  };
+  _openTlEditor();
+};
+
+function _tlExerciseRow(ex, idx){
+  const videoId = _ytId(ex.video||'');
+  return `<div class="tl-ex-row" data-idx="${idx}" style="background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:8px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;margin-bottom:6px">
+      <div class="fg" style="flex:2;min-width:140px">
+        <label>Übung</label>
+        <input type="text" class="tl-ex-name" value="${(ex.name||'').replace(/"/g,'&quot;')}" placeholder="z.B. Bankdrücken"/>
+      </div>
+      <div class="fg" style="flex:1;min-width:70px">
+        <label>Sätze</label>
+        <input type="text" class="tl-ex-sets" value="${(ex.sets||'').toString().replace(/"/g,'&quot;')}" placeholder="3"/>
+      </div>
+      <div class="fg" style="flex:1;min-width:70px">
+        <label>Wdh.</label>
+        <input type="text" class="tl-ex-reps" value="${(ex.reps||'').toString().replace(/"/g,'&quot;')}" placeholder="8-12"/>
+      </div>
+      <div class="fg" style="flex:1;min-width:80px">
+        <label>Gewicht (kg)</label>
+        <input type="number" step="0.5" class="tl-ex-weight" value="${ex.weight||''}" placeholder="60"/>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm tl-ex-remove" style="align-self:flex-end">×</button>
+    </div>
+    <div class="fg" style="margin-bottom:0">
+      <label>Notiz / Bemerkung</label>
+      <input type="text" class="tl-ex-notes" value="${(ex.notes||'').replace(/"/g,'&quot;')}" placeholder="z.B. fühlte sich leicht an"/>
+    </div>
+    ${ex.notes_template?`<div class="info" style="margin-top:4px;font-size:.78rem">${ex.notes_template}</div>`:''}
+    ${videoId?`<div class="yt-wrap" style="margin-top:8px"><iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen loading="lazy"></iframe></div>`:''}
+  </div>`;
+}
+
+function _renderTlExercises(){
+  const container = document.getElementById('tlExercises');
+  if(!container || !_editingLogEntry) return;
+  container.innerHTML = (_editingLogEntry.exercises||[]).map((ex,i)=>_tlExerciseRow(ex,i)).join('');
+  container.querySelectorAll('.tl-ex-row').forEach(row=>{
+    const idx = parseInt(row.dataset.idx);
+    row.querySelector('.tl-ex-name').addEventListener('input',e=>{_editingLogEntry.exercises[idx].name=e.target.value;});
+    row.querySelector('.tl-ex-sets').addEventListener('input',e=>{_editingLogEntry.exercises[idx].sets=e.target.value;});
+    row.querySelector('.tl-ex-reps').addEventListener('input',e=>{_editingLogEntry.exercises[idx].reps=e.target.value;});
+    row.querySelector('.tl-ex-weight').addEventListener('input',e=>{_editingLogEntry.exercises[idx].weight=e.target.value;});
+    row.querySelector('.tl-ex-notes').addEventListener('input',e=>{_editingLogEntry.exercises[idx].notes=e.target.value;});
+    row.querySelector('.tl-ex-remove').addEventListener('click',()=>{
+      _editingLogEntry.exercises.splice(idx,1);
+      _renderTlExercises();
+    });
+  });
+}
+
+function _openTlEditor(){
+  document.getElementById('tlTitle').value = _editingLogEntry.title||'';
+  document.getElementById('tlDate').value = _editingLogEntry.log_date||new Date().toISOString().slice(0,10);
+  document.getElementById('tlCategory').value = _editingLogEntry.category||'Sonstiges';
+  document.getElementById('tlProgramSel').value = _editingLogEntry.program_id||'';
+  document.getElementById('tlNotes').value = _editingLogEntry.notes||'';
+  document.getElementById('tlEditorTitle').textContent = _editingLogEntry.id ? 'Eintrag bearbeiten' : 'Neuer Eintrag';
+  document.getElementById('tlEditorCard').classList.remove('hidden');
+  _renderTlExercises();
+  document.getElementById('tlEditorCard').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+document.getElementById('newLogEntryBtn')?.addEventListener('click',()=>{
+  if(!_currentLogPlayerId){ alert('Bitte zuerst Spieler wählen.'); return; }
+  _editingLogEntry = {
+    log_date: new Date().toISOString().slice(0,10),
+    title: '', category: 'Kraft', program_id: null,
+    exercises: [{name:'',sets:'',reps:'',weight:'',notes:''}],
+    notes: ''
+  };
+  _openTlEditor();
+});
+
+document.getElementById('tlAddExerciseBtn')?.addEventListener('click',()=>{
+  if(!_editingLogEntry) return;
+  _editingLogEntry.exercises.push({name:'',sets:'',reps:'',weight:'',notes:''});
+  _renderTlExercises();
+});
+
+document.getElementById('tlCancelBtn')?.addEventListener('click',()=>{
+  _editingLogEntry = null;
+  document.getElementById('tlEditorCard').classList.add('hidden');
+});
+
+document.getElementById('tlSaveBtn')?.addEventListener('click', async()=>{
+  if(!_editingLogEntry || !_currentLogPlayerId) return;
+  _editingLogEntry.title = document.getElementById('tlTitle').value.trim();
+  _editingLogEntry.log_date = document.getElementById('tlDate').value;
+  _editingLogEntry.category = document.getElementById('tlCategory').value;
+  _editingLogEntry.notes = document.getElementById('tlNotes').value.trim();
+  _editingLogEntry.player_id = _currentLogPlayerId;
+  if(!_editingLogEntry.title){ alert('Bitte Titel eingeben.'); return; }
+  if(!_editingLogEntry.log_date){ alert('Bitte Datum wählen.'); return; }
+  const btn = document.getElementById('tlSaveBtn');
+  btn.disabled = true; btn.textContent = 'Speichern...';
+  try{
+    await window._DB.saveTrainingLogEntry(_editingLogEntry);
+    _editingLogEntry = null;
+    document.getElementById('tlEditorCard').classList.add('hidden');
+    await _loadAndRenderLog();
+  } catch(e){
+    alert('Fehler: '+e.message);
+  }
+  btn.disabled = false; btn.textContent = 'Speichern';
+});
+
+async function _loadAndRenderLog(){
+  if(!_currentLogPlayerId){ return; }
+  try{
+    _trainingLogEntries = await window._DB.loadTrainingLog(_currentLogPlayerId);
+  }catch(e){ console.error('loadLog',e); _trainingLogEntries=[]; }
+  _renderTlList();
+}
+
+function _renderTlList(){
+  const container = document.getElementById('tlList');
+  if(!container) return;
+  if(!_trainingLogEntries.length){
+    container.innerHTML = '<p class="info" style="padding:14px">Noch keine Einträge im Trainingsbuch.</p>';
+    return;
+  }
+  container.innerHTML = _trainingLogEntries.map(entry=>{
+    const d = new Date(entry.log_date);
+    const dateStr = d.toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'numeric'});
+    return `<div class="card" style="margin-top:14px">
+      <div class="card-hd">
+        <div>
+          <h2>${entry.title||'Eintrag'}</h2>
+          <div style="font-size:.82rem;color:var(--muted);margin-top:2px">
+            ${dateStr} &middot; <span class="badge" style="background:var(--orange-a);color:var(--orange);font-weight:600">${entry.category||'—'}</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" data-log-edit="${entry.id}">Bearbeiten</button>
+          <button class="btn btn-danger btn-sm" data-log-del="${entry.id}">Löschen</button>
+        </div>
+      </div>
+      ${(entry.exercises||[]).length?`<div class="tbl-wrap"><table>
+        <thead><tr><th>Übung</th><th>Sätze</th><th>Wdh.</th><th>Gewicht</th><th>Notiz</th></tr></thead>
+        <tbody>
+          ${entry.exercises.map(ex=>`<tr>
+            <td>${ex.name||'—'}</td>
+            <td>${ex.sets||'—'}</td>
+            <td>${ex.reps||'—'}</td>
+            <td>${ex.weight?ex.weight+' kg':'—'}</td>
+            <td>${ex.notes||'—'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>`:''}
+      ${entry.notes?`<p class="info" style="margin-top:10px">${entry.notes}</p>`:''}
+    </div>`;
+  }).join('');
+
+  container.querySelectorAll('[data-log-edit]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const e = _trainingLogEntries.find(x=>x.id===btn.dataset.logEdit);
+      if(!e) return;
+      _editingLogEntry = JSON.parse(JSON.stringify(e));
+      _openTlEditor();
+    });
+  });
+  container.querySelectorAll('[data-log-del]').forEach(btn=>{
+    btn.addEventListener('click', async()=>{
+      if(!confirm('Diesen Eintrag wirklich löschen?')) return;
+      try{
+        await window._DB.deleteTrainingLogEntry(btn.dataset.logDel);
+        await _loadAndRenderLog();
+      } catch(e){ alert('Fehler: '+e.message); }
+    });
+  });
+}
+
+// Load training programs on init for everyone
+setTimeout(()=>{ _loadAndRenderPrograms(); }, 500);
 </script>
 </body>
 </html>
