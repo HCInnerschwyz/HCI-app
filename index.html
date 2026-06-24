@@ -188,6 +188,21 @@ tr:hover td{background:var(--ice)}
 .thresholds-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .yt-wrap{position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:var(--r);background:#000;margin-top:6px}
 .yt-wrap iframe{position:absolute;top:0;left:0;width:100%;height:100%}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px}
+.cal-day-name{text-align:center;font-family:'Bebas Neue',sans-serif;font-size:.74rem;letter-spacing:.06em;color:var(--muted);padding:6px 2px}
+.cal-cell{aspect-ratio:1;border:1px solid var(--border);border-radius:var(--r);padding:4px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;cursor:pointer;transition:.15s;position:relative;min-height:54px}
+.cal-cell:hover{border-color:var(--orange)}
+.cal-cell.other-month{background:var(--ice);opacity:.5}
+.cal-cell.today{border-color:var(--orange);border-width:2px}
+.cal-cell.has-entry{background:var(--orange-a)}
+.cal-day-num{font-family:'Bebas Neue',sans-serif;font-size:.92rem;color:var(--navy)}
+.cal-other-num{color:var(--muted)}
+.cal-dots{display:flex;gap:2px;margin-top:2px;flex-wrap:wrap;justify-content:center;max-width:100%}
+.cal-dot{width:6px;height:6px;border-radius:50%;background:var(--orange)}
+@media(max-width:580px){
+  .cal-cell{min-height:42px;padding:2px}
+  .cal-day-num{font-size:.78rem}
+}
 @media(max-width:680px){.thresholds-grid{grid-template-columns:1fr}}
 .fq-item{margin-bottom:16px}
 .fq-label{display:block;font-family:'Bebas Neue',sans-serif;font-size:.78rem;letter-spacing:.12em;
@@ -615,6 +630,18 @@ window.addEventListener('DOMContentLoaded',function(){
         <label for="tlNotes">Notizen zum Training</label>
         <textarea id="tlNotes" rows="2" placeholder="z.B. Wie hat es sich angefühlt?"></textarea>
       </div>
+    </div>
+    <div class="card hidden" id="tlCalendarCard">
+      <div class="card-hd">
+        <h2>Kalender</h2>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="btn btn-ghost btn-sm" id="tlCalPrev">‹</button>
+          <span id="tlCalMonth" style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--navy);min-width:140px;text-align:center"></span>
+          <button class="btn btn-ghost btn-sm" id="tlCalNext">›</button>
+        </div>
+      </div>
+      <div id="tlCalGrid"></div>
+      <div id="tlCalLegend" style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;font-size:.78rem;color:var(--muted)"></div>
     </div>
     <div id="tlList"></div>
   </div>
@@ -3921,11 +3948,14 @@ document.getElementById('tlProgramSel')?.addEventListener('change', e=>{
   if(!prog) return;
   if(_editingLogEntry.exercises.length && !confirm('Bestehende Übungen mit Programm überschreiben?')) return;
   // Copy exercises from program, add weight/notes fields
-  _editingLogEntry.exercises = (prog.exercises||[]).map(ex=>({
-    name: ex.name, sets: ex.sets, reps: ex.reps,
-    video: ex.video, notes_template: ex.notes,
-    weight: '', actual_reps: '', notes: ''
-  }));
+  _editingLogEntry.exercises = (prog.exercises||[]).map(ex=>{
+    const n = parseInt(ex.sets)||1;
+    return {
+      name: ex.name, sets: n, reps: ex.reps,
+      video: ex.video, notes_template: ex.notes,
+      weights: Array(n).fill(''), notes: ''
+    };
+  });
   _editingLogEntry.title = prog.title;
   _editingLogEntry.category = prog.category;
   _editingLogEntry.program_id = prog.id;
@@ -3948,11 +3978,14 @@ window._copyProgramToLog = function(programId){
     title: prog.title,
     category: prog.category||'Sonstiges',
     program_id: prog.id,
-    exercises: (prog.exercises||[]).map(ex=>({
-      name: ex.name, sets: ex.sets, reps: ex.reps,
-      video: ex.video, notes_template: ex.notes,
-      weight: '', actual_reps: '', notes: ''
-    })),
+    exercises: (prog.exercises||[]).map(ex=>{
+      const n = parseInt(ex.sets)||1;
+      return {
+        name: ex.name, sets: n, reps: ex.reps,
+        video: ex.video, notes_template: ex.notes,
+        weights: Array(n).fill(''), notes: ''
+      };
+    }),
     notes: ''
   };
   _openTlEditor();
@@ -3960,25 +3993,45 @@ window._copyProgramToLog = function(programId){
 
 function _tlExerciseRow(ex, idx){
   const videoId = _ytId(ex.video||'');
+  // Determine number of sets — from sets field or weights array
+  const setsNum = parseInt(ex.sets) || (Array.isArray(ex.weights) ? ex.weights.length : 1) || 1;
+  // Initialize weights array if missing — support legacy single weight field
+  if(!Array.isArray(ex.weights)){
+    const legacy = ex.weight || '';
+    ex.weights = Array(setsNum).fill('').map((_,i)=> i===0 && legacy ? legacy : '');
+  }
+  // Resize weights array to match setsNum
+  while(ex.weights.length < setsNum) ex.weights.push('');
+  while(ex.weights.length > setsNum && setsNum > 0) ex.weights.pop();
+
+  // Build per-set weight inputs
+  const weightInputs = ex.weights.map((w,si)=>`
+    <div class="tl-set" style="display:flex;align-items:center;gap:6px;background:var(--ice);border-radius:var(--r);padding:6px 10px">
+      <span style="font-family:'Bebas Neue',sans-serif;font-size:.8rem;color:var(--muted);min-width:32px">S${si+1}</span>
+      <input type="number" step="0.5" class="tl-ex-weight-set" data-set="${si}" value="${w||''}" placeholder="kg" style="width:70px"/>
+    </div>`).join('');
+
   return `<div class="tl-ex-row" data-idx="${idx}" style="background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:8px">
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;margin-bottom:6px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;margin-bottom:8px">
       <div class="fg" style="flex:2;min-width:140px">
         <label>Übung</label>
         <input type="text" class="tl-ex-name" value="${(ex.name||'').replace(/"/g,'&quot;')}" placeholder="z.B. Bankdrücken"/>
       </div>
       <div class="fg" style="flex:1;min-width:70px">
         <label>Sätze</label>
-        <input type="text" class="tl-ex-sets" value="${(ex.sets||'').toString().replace(/"/g,'&quot;')}" placeholder="3"/>
+        <input type="number" min="1" max="20" class="tl-ex-sets" value="${setsNum}" placeholder="3"/>
       </div>
       <div class="fg" style="flex:1;min-width:70px">
         <label>Wdh.</label>
         <input type="text" class="tl-ex-reps" value="${(ex.reps||'').toString().replace(/"/g,'&quot;')}" placeholder="8-12"/>
       </div>
-      <div class="fg" style="flex:1;min-width:80px">
-        <label>Gewicht (kg)</label>
-        <input type="number" step="0.5" class="tl-ex-weight" value="${ex.weight||''}" placeholder="60"/>
-      </div>
       <button type="button" class="btn btn-ghost btn-sm tl-ex-remove" style="align-self:flex-end">×</button>
+    </div>
+    <div class="fg" style="margin-bottom:6px">
+      <label>Gewicht pro Satz (kg)</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px" class="tl-sets-container">
+        ${weightInputs}
+      </div>
     </div>
     <div class="fg" style="margin-bottom:0">
       <label>Notiz / Bemerkung</label>
@@ -3995,11 +4048,24 @@ function _renderTlExercises(){
   container.innerHTML = (_editingLogEntry.exercises||[]).map((ex,i)=>_tlExerciseRow(ex,i)).join('');
   container.querySelectorAll('.tl-ex-row').forEach(row=>{
     const idx = parseInt(row.dataset.idx);
-    row.querySelector('.tl-ex-name').addEventListener('input',e=>{_editingLogEntry.exercises[idx].name=e.target.value;});
-    row.querySelector('.tl-ex-sets').addEventListener('input',e=>{_editingLogEntry.exercises[idx].sets=e.target.value;});
-    row.querySelector('.tl-ex-reps').addEventListener('input',e=>{_editingLogEntry.exercises[idx].reps=e.target.value;});
-    row.querySelector('.tl-ex-weight').addEventListener('input',e=>{_editingLogEntry.exercises[idx].weight=e.target.value;});
-    row.querySelector('.tl-ex-notes').addEventListener('input',e=>{_editingLogEntry.exercises[idx].notes=e.target.value;});
+    const ex = _editingLogEntry.exercises[idx];
+    row.querySelector('.tl-ex-name').addEventListener('input',e=>{ex.name=e.target.value;});
+    row.querySelector('.tl-ex-sets').addEventListener('change',e=>{
+      const n = Math.max(1, Math.min(20, parseInt(e.target.value)||1));
+      ex.sets = n;
+      // Resize weights to match
+      while(ex.weights.length < n) ex.weights.push('');
+      while(ex.weights.length > n) ex.weights.pop();
+      _renderTlExercises();
+    });
+    row.querySelector('.tl-ex-reps').addEventListener('input',e=>{ex.reps=e.target.value;});
+    row.querySelectorAll('.tl-ex-weight-set').forEach(inp=>{
+      inp.addEventListener('input',e=>{
+        const si = parseInt(e.target.dataset.set);
+        ex.weights[si] = e.target.value;
+      });
+    });
+    row.querySelector('.tl-ex-notes').addEventListener('input',e=>{ex.notes=e.target.value;});
     row.querySelector('.tl-ex-remove').addEventListener('click',()=>{
       _editingLogEntry.exercises.splice(idx,1);
       _renderTlExercises();
@@ -4024,7 +4090,7 @@ document.getElementById('newLogEntryBtn')?.addEventListener('click',()=>{
   _editingLogEntry = {
     log_date: new Date().toISOString().slice(0,10),
     title: '', category: 'Kraft', program_id: null,
-    exercises: [{name:'',sets:'',reps:'',weight:'',notes:''}],
+    exercises: [{name:'',sets:1,reps:'',weights:[''],notes:''}],
     notes: ''
   };
   _openTlEditor();
@@ -4032,7 +4098,7 @@ document.getElementById('newLogEntryBtn')?.addEventListener('click',()=>{
 
 document.getElementById('tlAddExerciseBtn')?.addEventListener('click',()=>{
   if(!_editingLogEntry) return;
-  _editingLogEntry.exercises.push({name:'',sets:'',reps:'',weight:'',notes:''});
+  _editingLogEntry.exercises.push({name:'',sets:1,reps:'',weights:[''],notes:''});
   _renderTlExercises();
 });
 
@@ -4081,7 +4147,7 @@ function _renderTlList(){
   container.innerHTML = _trainingLogEntries.map(entry=>{
     const d = new Date(entry.log_date);
     const dateStr = d.toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'numeric'});
-    return `<div class="card" style="margin-top:14px">
+    return `<div class="card" style="margin-top:14px" data-log-entry-id="${entry.id}">
       <div class="card-hd">
         <div>
           <h2>${entry.title||'Eintrag'}</h2>
@@ -4095,15 +4161,24 @@ function _renderTlList(){
         </div>
       </div>
       ${(entry.exercises||[]).length?`<div class="tbl-wrap"><table>
-        <thead><tr><th>Übung</th><th>Sätze</th><th>Wdh.</th><th>Gewicht</th><th>Notiz</th></tr></thead>
+        <thead><tr><th>Übung</th><th>Sätze</th><th>Wdh.</th><th>Gewicht pro Satz</th><th>Notiz</th></tr></thead>
         <tbody>
-          ${entry.exercises.map(ex=>`<tr>
-            <td>${ex.name||'—'}</td>
-            <td>${ex.sets||'—'}</td>
-            <td>${ex.reps||'—'}</td>
-            <td>${ex.weight?ex.weight+' kg':'—'}</td>
-            <td>${ex.notes||'—'}</td>
-          </tr>`).join('')}
+          ${entry.exercises.map(ex=>{
+            // Build per-set weight display
+            let weightDisplay = '—';
+            if(Array.isArray(ex.weights) && ex.weights.some(w=>w!=='' && w!=null)){
+              weightDisplay = ex.weights.map((w,i)=>w?`<span style="display:inline-block;background:var(--ice);padding:2px 8px;border-radius:4px;margin:1px 2px;font-size:.82rem">S${i+1}: ${w}kg</span>`:'').join('');
+            } else if(ex.weight){
+              weightDisplay = ex.weight+' kg';
+            }
+            return `<tr>
+              <td>${ex.name||'—'}</td>
+              <td>${ex.sets||'—'}</td>
+              <td>${ex.reps||'—'}</td>
+              <td>${weightDisplay}</td>
+              <td>${ex.notes||'—'}</td>
+            </tr>`;
+          }).join('')}
         </tbody>
       </table></div>`:''}
       ${entry.notes?`<p class="info" style="margin-top:10px">${entry.notes}</p>`:''}
@@ -4131,6 +4206,149 @@ function _renderTlList(){
 
 // Load training programs on init for everyone
 setTimeout(()=>{ _loadAndRenderPrograms(); }, 500);
+
+
+/* ══ TRAININGSBUCH CALENDAR ══ */
+let _calCurrentMonth = null; // {y, m} where m is 0-indexed
+
+function _catColor(cat){
+  const map = {
+    'Kraft':'#e8621a',
+    'Schnelligkeit':'#1a7a3e',
+    'Explosivität':'#9a1515',
+    'Ausdauer':'#1e62a8',
+    'Koordination':'#6e3aa3',
+    'Eis':'#2596be'
+  };
+  return map[cat] || '#5a6b7a';
+}
+
+function _renderTlCalendar(){
+  const grid = document.getElementById('tlCalGrid');
+  const monthEl = document.getElementById('tlCalMonth');
+  const legendEl = document.getElementById('tlCalLegend');
+  if(!grid) return;
+
+  if(!_calCurrentMonth){
+    const now = new Date();
+    _calCurrentMonth = {y:now.getFullYear(), m:now.getMonth()};
+  }
+
+  const {y, m} = _calCurrentMonth;
+  const firstDay = new Date(y, m, 1);
+  const lastDay = new Date(y, m+1, 0);
+  // Week starts Monday in Switzerland
+  const firstDayOfWeek = (firstDay.getDay() + 6) % 7; // Mon=0, Sun=6
+  const daysInMonth = lastDay.getDate();
+  const prevMonthDays = new Date(y, m, 0).getDate();
+
+  const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  monthEl.textContent = monthNames[m] + ' ' + y;
+
+  // Index entries by date string
+  const entriesByDate = {};
+  _trainingLogEntries.forEach(e=>{
+    if(!entriesByDate[e.log_date]) entriesByDate[e.log_date] = [];
+    entriesByDate[e.log_date].push(e);
+  });
+
+  const dayNames = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+  const todayStr = new Date().toISOString().slice(0,10);
+
+  let html = '<div class="cal-grid">';
+  dayNames.forEach(d=>{ html += `<div class="cal-day-name">${d}</div>`; });
+
+  // Previous month padding
+  for(let i = firstDayOfWeek - 1; i >= 0; i--){
+    const d = prevMonthDays - i;
+    html += `<div class="cal-cell other-month"><span class="cal-day-num cal-other-num">${d}</span></div>`;
+  }
+
+  // Current month
+  for(let d = 1; d <= daysInMonth; d++){
+    const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const entries = entriesByDate[dateStr] || [];
+    const isToday = dateStr === todayStr;
+    const classes = ['cal-cell'];
+    if(isToday) classes.push('today');
+    if(entries.length) classes.push('has-entry');
+    const dots = entries.slice(0,4).map(e=>
+      `<div class="cal-dot" style="background:${_catColor(e.category)}" title="${e.title||''}"></div>`
+    ).join('');
+    html += `<div class="${classes.join(' ')}" data-date="${dateStr}">
+      <span class="cal-day-num">${d}</span>
+      <div class="cal-dots">${dots}</div>
+    </div>`;
+  }
+
+  // Next month padding
+  const totalCells = firstDayOfWeek + daysInMonth;
+  const nextDays = (7 - totalCells % 7) % 7;
+  for(let d = 1; d <= nextDays; d++){
+    html += `<div class="cal-cell other-month"><span class="cal-day-num cal-other-num">${d}</span></div>`;
+  }
+  html += '</div>';
+
+  grid.innerHTML = html;
+
+  // Wire cell click → scroll to entries / show new
+  grid.querySelectorAll('.cal-cell[data-date]').forEach(cell=>{
+    cell.addEventListener('click',()=>{
+      const date = cell.dataset.date;
+      const entries = entriesByDate[date] || [];
+      if(entries.length){
+        // Scroll to first entry in list
+        const entryEl = document.querySelector(`[data-log-entry-id="${entries[0].id}"]`);
+        if(entryEl) entryEl.scrollIntoView({behavior:'smooth', block:'start'});
+      } else if(_currentLogPlayerId){
+        // Open new entry for that date
+        _editingLogEntry = {
+          log_date: date,
+          title: '', category: 'Kraft', program_id: null,
+          exercises: [{name:'',sets:1,reps:'',weights:[''],notes:''}],
+          notes: ''
+        };
+        _openTlEditor();
+      }
+    });
+  });
+
+  // Legend - unique categories present this month
+  const cats = new Set();
+  Object.entries(entriesByDate).forEach(([date, ents])=>{
+    if(date.startsWith(`${y}-${String(m+1).padStart(2,'0')}`)){
+      ents.forEach(e=>cats.add(e.category||'Sonstiges'));
+    }
+  });
+  legendEl.innerHTML = [...cats].map(c=>
+    `<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:${_catColor(c)}"></span>${c}</span>`
+  ).join('');
+}
+
+document.getElementById('tlCalPrev')?.addEventListener('click',()=>{
+  if(!_calCurrentMonth) return;
+  _calCurrentMonth.m--;
+  if(_calCurrentMonth.m < 0){ _calCurrentMonth.m = 11; _calCurrentMonth.y--; }
+  _renderTlCalendar();
+});
+document.getElementById('tlCalNext')?.addEventListener('click',()=>{
+  if(!_calCurrentMonth) return;
+  _calCurrentMonth.m++;
+  if(_calCurrentMonth.m > 11){ _calCurrentMonth.m = 0; _calCurrentMonth.y++; }
+  _renderTlCalendar();
+});
+
+// Show calendar when log loads, render entries with data-id
+const _origLoadAndRenderLog = _loadAndRenderLog;
+_loadAndRenderLog = async function(){
+  await _origLoadAndRenderLog();
+  if(_currentLogPlayerId){
+    document.getElementById('tlCalendarCard')?.classList.remove('hidden');
+    _renderTlCalendar();
+  } else {
+    document.getElementById('tlCalendarCard')?.classList.add('hidden');
+  }
+};
 </script>
 </body>
 </html>
