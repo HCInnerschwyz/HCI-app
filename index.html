@@ -893,9 +893,18 @@ async function _loadDB(){
           segs.sort((a,b)=>a.headerRow-b.headerRow);
           segs.forEach((seg,i)=>parseSegment(sheet,teamLabel,seg,segs[i+1]?segs[i+1].headerRow-1:range.e.r));
         });
+        // Track which tests were just imported so we save ALL of them
+        // (both new ones and overwrites)
         Object.values(DATA.players).forEach(p=>{
           window._DB&&window._DB.upsertPlayer(p).catch(console.error);
-          p.tests.forEach(t=>{if(!t.dbId&&window._DB) window._DB.upsertTest(t).catch(console.error);});
+          p.tests.forEach(t=>{
+            if(t._fromImport && window._DB){
+              window._DB.upsertTest(t).catch(console.error);
+              delete t._fromImport;
+            } else if(!t.dbId && window._DB){
+              window._DB.upsertTest(t).catch(console.error);
+            }
+          });
         });
         if(window._appRefresh) window._appRefresh();
         alert(`Excel-Datei für ${teamLabel} geladen.`);
@@ -1039,7 +1048,17 @@ async function _loadDB(){
 
   function addTestEntry(entry){
     const player = ensurePlayer(entry.playerName, entry.team);
-    player.tests.push(entry);
+    // Deduplicate: same player + season + type = same test occurrence
+    const existingIdx = player.tests.findIndex(t =>
+      t.season === entry.season && t.type === entry.type
+    );
+    if(existingIdx >= 0){
+      // Preserve dbId so upsert updates in DB instead of duplicating
+      const oldDbId = player.tests[existingIdx].dbId;
+      player.tests[existingIdx] = { ...entry, dbId: oldDbId, _fromImport: true };
+    } else {
+      player.tests.push({ ...entry, _fromImport: true });
+    }
   }
 
   /* ---------------------------
