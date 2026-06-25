@@ -821,10 +821,18 @@ window.addEventListener('DOMContentLoaded',function(){
             </div>
           </div>
           <div class="fg" style="margin-bottom:10px">
-            <label for="tpDesc">Beschreibung</label>
-            <textarea id="tpDesc" rows="2" placeholder="Allgemeine Hinweise zum Programm..."></textarea>
+            <label for="tpDesc">Programm-Beschreibung</label>
+            <textarea id="tpDesc" rows="6" placeholder="Detaillierte Beschreibung des Programms. Du kannst hier den vollständigen Ablauf, Pausen, Intervalle, RPE-Werte usw. schreiben. Zeilenumbrüche werden beibehalten."></textarea>
+            <p class="info" style="margin-top:4px">Wird Spielern vollständig angezeigt – ideal für Intervall-Programme, Lauf-Protokolle usw.</p>
           </div>
-          <div class="sec">Übungen</div>
+          <div class="fg" style="margin-bottom:10px">
+            <label>PDF-Anhang (optional)</label>
+            <div id="tpPdfStatus" style="margin-bottom:6px;font-size:.84rem"></div>
+            <input type="file" id="tpPdfFile" accept=".pdf"/>
+            <p class="info" style="margin-top:4px">Original-PDF hochladen – Spieler können es direkt in der App öffnen.</p>
+          </div>
+          <div class="sec">Einzelübungen (optional)</div>
+          <p class="info" style="margin-top:-6px;margin-bottom:8px">Übungen können separat erfasst werden, damit Spieler sie ins Trainingsbuch übernehmen können. Bei reinen Intervall- oder Lauf-Programmen kannst du dieses Feld leer lassen.</p>
           <div id="tpExercises"></div>
           <button type="button" class="btn btn-ghost btn-sm" id="tpAddExerciseBtn" style="margin-top:8px">+ Übung hinzufügen</button>
         </div>
@@ -964,21 +972,32 @@ window._DB = {
     return data||[];
   },
   async saveTrainingProgram(program){
+    const payload = {
+      title:program.title, category:program.category, team:program.team,
+      description:program.description, exercises:program.exercises,
+      pdf_url:program.pdf_url||null, pdf_name:program.pdf_name||null
+    };
     if(program.id){
-      const {error}=await _SB.from('training_programs').update({
-        title:program.title, category:program.category, team:program.team,
-        description:program.description, exercises:program.exercises
-      }).eq('id',program.id);
+      const {error}=await _SB.from('training_programs').update(payload).eq('id',program.id);
       if(error) throw error;
       return program.id;
     } else {
-      const {data,error}=await _SB.from('training_programs').insert({
-        title:program.title, category:program.category, team:program.team,
-        description:program.description, exercises:program.exercises
-      }).select('id');
+      const {data,error}=await _SB.from('training_programs').insert(payload).select('id');
       if(error) throw error;
       return data&&data[0]?data[0].id:null;
     }
+  },
+  async uploadProgramPdf(file){
+    const fileName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+    const {data, error} = await _SB.storage.from('training-files').upload(fileName, file);
+    if(error) throw error;
+    const {data:urlData} = _SB.storage.from('training-files').getPublicUrl(fileName);
+    return {url: urlData.publicUrl, name: file.name, path: fileName};
+  },
+  async deleteProgramPdf(path){
+    if(!path) return;
+    const {error} = await _SB.storage.from('training-files').remove([path]);
+    if(error) console.warn('PDF delete:', error.message);
   },
   async deleteTrainingProgram(id){
     const {error}=await _SB.from('training_programs').delete().eq('id',id);
@@ -3736,6 +3755,11 @@ function _tpExerciseRow(ex, idx, isEditor){
   </div>`;
 }
 
+
+function _escapeHtml(str){
+  if(!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 function _ytId(url){
   if(!url) return null;
   const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([\w-]{11})/);
@@ -3765,7 +3789,9 @@ function _renderTrainingsListPublic(){
     container.innerHTML = '<p class="info">Keine Trainingsprogramme verfügbar.</p>';
     return;
   }
-  container.innerHTML = progs.map(p=>`
+  container.innerHTML = progs.map(p=>{
+    const hasExercises = (p.exercises||[]).some(e=>e.name);
+    return `
     <div style="border:1px solid var(--border);border-radius:var(--r2);padding:16px;margin-bottom:12px;background:#fff">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:8px">
         <div>
@@ -3775,12 +3801,13 @@ function _renderTrainingsListPublic(){
             <span style="margin-left:6px">${p.team==='BEIDE'?'U18 & U21':p.team}</span>
           </div>
         </div>
-        <button class="btn btn-ghost btn-sm" onclick="_copyProgramToLog('${p.id}')">In Trainingsbuch übernehmen</button>
+        ${hasExercises?`<button class="btn btn-ghost btn-sm" onclick="_copyProgramToLog('${p.id}')">In Trainingsbuch übernehmen</button>`:''}
       </div>
-      ${p.description?`<p style="margin-bottom:12px;color:var(--ink2);font-size:.9rem">${p.description}</p>`:''}
-      <div>${(p.exercises||[]).map((ex,i)=>_tpExerciseRow(ex,i,false)).join('')}</div>
+      ${p.description?`<div style="margin-bottom:12px;color:var(--ink2);font-size:.92rem;white-space:pre-wrap;line-height:1.5">${_escapeHtml(p.description)}</div>`:''}
+      ${p.pdf_url?`<div style="margin-bottom:12px"><a href="${p.pdf_url}" target="_blank" rel="noopener" class="btn btn-primary btn-sm">📎 ${p.pdf_name||'PDF öffnen'}</a></div>`:''}
+      ${hasExercises?`<div>${(p.exercises||[]).map((ex,i)=>_tpExerciseRow(ex,i,false)).join('')}</div>`:''}
     </div>
-  `).join('');
+  `;}).join('');
 }
 
 document.getElementById('tpFilterCategory')?.addEventListener('change', _renderTrainingsListPublic);
@@ -3806,14 +3833,56 @@ function _renderTpEditorExercises(){
 }
 
 document.getElementById('newProgramBtn')?.addEventListener('click',()=>{
-  _editingProgram = {title:'', category:'Kraft', team:'BEIDE', description:'', exercises:[{name:'',sets:'',reps:'',video:'',notes:''}]};
+  _editingProgram = {title:'', category:'Kraft', team:'BEIDE', description:'', exercises:[], pdf_url:null, pdf_name:null, pdf_path:null};
   document.getElementById('tpEditorTitle').textContent = 'Neues Programm';
   document.getElementById('tpTitle').value = '';
   document.getElementById('tpCategory').value = 'Kraft';
   document.getElementById('tpTeam').value = 'BEIDE';
   document.getElementById('tpDesc').value = '';
+  document.getElementById('tpPdfFile').value = '';
+  _updatePdfStatus();
   document.getElementById('tpEditorCard').classList.remove('hidden');
   _renderTpEditorExercises();
+});
+
+function _updatePdfStatus(){
+  const statusEl = document.getElementById('tpPdfStatus');
+  if(!statusEl || !_editingProgram) return;
+  if(_editingProgram.pdf_url && _editingProgram.pdf_name){
+    statusEl.innerHTML = `<span style="background:var(--good-bg);color:var(--good);padding:4px 10px;border-radius:var(--r);display:inline-flex;align-items:center;gap:6px">
+      📎 ${_editingProgram.pdf_name}
+      <a href="${_editingProgram.pdf_url}" target="_blank" rel="noopener" style="color:var(--good);text-decoration:underline">öffnen</a>
+      <button type="button" id="tpPdfRemove" style="background:none;border:none;color:var(--bad);cursor:pointer;padding:0;margin-left:4px">×</button>
+    </span>`;
+    document.getElementById('tpPdfRemove')?.addEventListener('click',()=>{
+      if(!confirm('PDF entfernen?')) return;
+      _editingProgram.pdf_url = null;
+      _editingProgram.pdf_name = null;
+      _editingProgram.pdf_path = null;
+      _updatePdfStatus();
+    });
+  } else {
+    statusEl.innerHTML = '';
+  }
+}
+
+document.getElementById('tpPdfFile')?.addEventListener('change', async(e)=>{
+  const file = e.target.files[0];
+  if(!file || !_editingProgram) return;
+  if(file.size > 10 * 1024 * 1024){ alert('PDF zu gross (max. 10 MB).'); e.target.value=''; return; }
+  const statusEl = document.getElementById('tpPdfStatus');
+  if(statusEl) statusEl.innerHTML = '<span class="info">Hochladen...</span>';
+  try{
+    const result = await window._DB.uploadProgramPdf(file);
+    _editingProgram.pdf_url = result.url;
+    _editingProgram.pdf_name = result.name;
+    _editingProgram.pdf_path = result.path;
+    _updatePdfStatus();
+    e.target.value = '';
+  } catch(err){
+    alert('Upload fehlgeschlagen: ' + err.message);
+    if(statusEl) statusEl.innerHTML = '';
+  }
 });
 
 document.getElementById('tpAddExerciseBtn')?.addEventListener('click',()=>{
@@ -3834,8 +3903,12 @@ document.getElementById('tpSaveBtn')?.addEventListener('click', async()=>{
   _editingProgram.team = document.getElementById('tpTeam').value;
   _editingProgram.description = document.getElementById('tpDesc').value.trim();
   if(!_editingProgram.title){ alert('Bitte Titel eingeben.'); return; }
-  if(!_editingProgram.exercises.length || !_editingProgram.exercises.some(e=>e.name)){
-    alert('Bitte mindestens eine Übung mit Namen eingeben.'); return;
+  // At least one of: description, PDF, or exercises required
+  const hasDesc = _editingProgram.description && _editingProgram.description.trim();
+  const hasPdf = _editingProgram.pdf_url;
+  const hasExercises = _editingProgram.exercises && _editingProgram.exercises.some(e=>e.name);
+  if(!hasDesc && !hasPdf && !hasExercises){
+    alert('Bitte mindestens eines ausfüllen: Beschreibung, PDF oder eine Übung.'); return;
   }
   const btn = document.getElementById('tpSaveBtn');
   btn.disabled = true; btn.textContent = 'Speichern...';
@@ -3862,7 +3935,7 @@ function _renderTpManageList(){
     <thead><tr><th>Titel</th><th>Kategorie</th><th>Team</th><th>Übungen</th><th></th></tr></thead>
     <tbody>
       ${_trainingPrograms.map(p=>`<tr>
-        <td>${p.title}</td>
+        <td>${p.title}${p.pdf_url?' 📎':''}</td>
         <td>${p.category||'—'}</td>
         <td>${p.team||'—'}</td>
         <td>${(p.exercises||[]).length}</td>
@@ -3879,12 +3952,15 @@ function _renderTpManageList(){
       const p = _trainingPrograms.find(x=>x.id===btn.dataset.edit);
       if(!p) return;
       _editingProgram = { id:p.id, title:p.title, category:p.category, team:p.team,
-        description:p.description, exercises: JSON.parse(JSON.stringify(p.exercises||[])) };
+        description:p.description, exercises: JSON.parse(JSON.stringify(p.exercises||[])),
+        pdf_url: p.pdf_url, pdf_name: p.pdf_name };
       document.getElementById('tpEditorTitle').textContent = 'Programm bearbeiten';
       document.getElementById('tpTitle').value = p.title;
       document.getElementById('tpCategory').value = p.category||'Kraft';
       document.getElementById('tpTeam').value = p.team||'BEIDE';
       document.getElementById('tpDesc').value = p.description||'';
+      document.getElementById('tpPdfFile').value = '';
+      _updatePdfStatus();
       document.getElementById('tpEditorCard').classList.remove('hidden');
       _renderTpEditorExercises();
     });
