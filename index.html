@@ -188,6 +188,9 @@ tr:hover td{background:var(--ice)}
 .thresholds-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .yt-wrap{position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:var(--r);background:#000;margin-top:6px}
 .yt-wrap iframe{position:absolute;top:0;left:0;width:100%;height:100%}
+.btn-reorder{background:#fff;border:1px solid var(--border);border-radius:var(--r);cursor:pointer;padding:2px 6px;font-size:.7rem;color:var(--ink2);transition:.15s;min-width:24px;line-height:1}
+.btn-reorder:hover:not(:disabled){background:var(--orange);color:#fff;border-color:var(--orange)}
+.btn-reorder:disabled{opacity:.3;cursor:not-allowed}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px}
 .cal-day-name{text-align:center;font-family:'Bebas Neue',sans-serif;font-size:.74rem;letter-spacing:.06em;color:var(--muted);padding:6px 2px}
 .cal-cell{aspect-ratio:1;border:1px solid var(--border);border-radius:var(--r);padding:4px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;cursor:pointer;transition:.15s;position:relative;min-height:54px}
@@ -554,6 +557,7 @@ window.addEventListener('DOMContentLoaded',function(){
           <label for="tpFilterCategory">Kategorie</label>
           <select id="tpFilterCategory">
             <option value="ALL">Alle</option>
+            <option value="Trainingsplan">Trainingsplan</option>
             <option value="Kraft">Kraft</option>
             <option value="Schnelligkeit">Schnelligkeit</option>
             <option value="Explosivität">Explosivität</option>
@@ -610,6 +614,7 @@ window.addEventListener('DOMContentLoaded',function(){
         <div class="fg" style="flex:1;min-width:120px">
           <label for="tlCategory">Kategorie</label>
           <select id="tlCategory">
+            <option value="Trainingsplan">Trainingsplan</option>
             <option value="Kraft">Kraft</option>
             <option value="Schnelligkeit">Schnelligkeit</option>
             <option value="Explosivität">Explosivität</option>
@@ -803,6 +808,7 @@ window.addEventListener('DOMContentLoaded',function(){
             <div class="fg" style="flex:1;min-width:120px">
               <label for="tpCategory">Kategorie</label>
               <select id="tpCategory">
+                <option value="Trainingsplan">Trainingsplan</option>
                 <option value="Kraft">Kraft</option>
                 <option value="Schnelligkeit">Schnelligkeit</option>
                 <option value="Explosivität">Explosivität</option>
@@ -3711,31 +3717,40 @@ window._safeRefreshChart = function(){
 let _trainingPrograms = [];
 let _editingProgram = null;
 
-function _tpExerciseRow(ex, idx, isEditor){
+function _tpExerciseRow(ex, idx, isEditor, totalCount){
   if(isEditor){
     return `<div class="tp-ex-row" data-idx="${idx}">
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;background:#fff;padding:10px;border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px">
-        <div class="fg" style="flex:2;min-width:140px">
-          <label>Name der Übung</label>
-          <input type="text" class="tp-ex-name" value="${(ex.name||'').replace(/"/g,'&quot;')}" placeholder="z.B. Kniebeuge"/>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;background:#fff;padding:10px;border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;position:relative">
+        <div style="display:flex;align-items:center;gap:4px;align-self:stretch;padding-right:6px;border-right:1px solid var(--ice2)">
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <button type="button" class="btn-reorder tp-ex-up" ${idx===0?'disabled':''} title="Nach oben" aria-label="Nach oben">▲</button>
+            <span style="font-family:'Bebas Neue',sans-serif;font-size:.78rem;color:var(--muted);text-align:center;min-width:24px">${idx+1}</span>
+            <button type="button" class="btn-reorder tp-ex-down" ${idx===totalCount-1?'disabled':''} title="Nach unten" aria-label="Nach unten">▼</button>
+          </div>
         </div>
-        <div class="fg" style="flex:1;min-width:70px">
-          <label>Sätze</label>
-          <input type="number" class="tp-ex-sets" value="${ex.sets||''}" placeholder="3"/>
+        <div style="flex:1;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
+          <div class="fg" style="flex:2;min-width:140px">
+            <label>Name der Übung</label>
+            <input type="text" class="tp-ex-name" value="${(ex.name||'').replace(/"/g,'&quot;')}" placeholder="z.B. Kniebeuge"/>
+          </div>
+          <div class="fg" style="flex:1;min-width:70px">
+            <label>Sätze</label>
+            <input type="number" class="tp-ex-sets" value="${ex.sets||''}" placeholder="3"/>
+          </div>
+          <div class="fg" style="flex:1;min-width:70px">
+            <label>Wdh.</label>
+            <input type="text" class="tp-ex-reps" value="${(ex.reps||'').replace(/"/g,'&quot;')}" placeholder="8-12"/>
+          </div>
+          <div class="fg" style="flex:2;min-width:160px">
+            <label>Video-Link (YouTube)</label>
+            <input type="url" class="tp-ex-video" value="${(ex.video||'').replace(/"/g,'&quot;')}" placeholder="https://youtube.com/..."/>
+          </div>
+          <div class="fg" style="flex:1 1 100%">
+            <label>Hinweise</label>
+            <input type="text" class="tp-ex-notes" value="${(ex.notes||'').replace(/"/g,'&quot;')}" placeholder="z.B. langsam ausführen"/>
+          </div>
         </div>
-        <div class="fg" style="flex:1;min-width:70px">
-          <label>Wdh.</label>
-          <input type="text" class="tp-ex-reps" value="${(ex.reps||'').replace(/"/g,'&quot;')}" placeholder="8-12"/>
-        </div>
-        <div class="fg" style="flex:2;min-width:160px">
-          <label>Video-Link (YouTube)</label>
-          <input type="url" class="tp-ex-video" value="${(ex.video||'').replace(/"/g,'&quot;')}" placeholder="https://youtube.com/..."/>
-        </div>
-        <div class="fg" style="flex:1 1 100%">
-          <label>Hinweise</label>
-          <input type="text" class="tp-ex-notes" value="${(ex.notes||'').replace(/"/g,'&quot;')}" placeholder="z.B. langsam ausführen"/>
-        </div>
-        <button type="button" class="btn btn-ghost btn-sm tp-ex-remove" style="align-self:flex-end">Entfernen</button>
+        <button type="button" class="btn btn-ghost btn-sm tp-ex-remove" style="align-self:flex-start">Entfernen</button>
       </div>
     </div>`;
   }
@@ -3817,7 +3832,8 @@ document.getElementById('tpFilterTeam')?.addEventListener('change', _renderTrain
 function _renderTpEditorExercises(){
   const container = document.getElementById('tpExercises');
   if(!container || !_editingProgram) return;
-  container.innerHTML = (_editingProgram.exercises||[]).map((ex,i)=>_tpExerciseRow(ex,i,true)).join('');
+  const exs = _editingProgram.exercises||[];
+  container.innerHTML = exs.map((ex,i)=>_tpExerciseRow(ex,i,true,exs.length)).join('');
   container.querySelectorAll('.tp-ex-row').forEach(row=>{
     const idx = parseInt(row.dataset.idx);
     row.querySelector('.tp-ex-name').addEventListener('input',e=>{_editingProgram.exercises[idx].name=e.target.value;});
@@ -3827,6 +3843,18 @@ function _renderTpEditorExercises(){
     row.querySelector('.tp-ex-notes').addEventListener('input',e=>{_editingProgram.exercises[idx].notes=e.target.value;});
     row.querySelector('.tp-ex-remove').addEventListener('click',()=>{
       _editingProgram.exercises.splice(idx,1);
+      _renderTpEditorExercises();
+    });
+    row.querySelector('.tp-ex-up')?.addEventListener('click',()=>{
+      if(idx <= 0) return;
+      const a = _editingProgram.exercises;
+      [a[idx-1], a[idx]] = [a[idx], a[idx-1]];
+      _renderTpEditorExercises();
+    });
+    row.querySelector('.tp-ex-down')?.addEventListener('click',()=>{
+      const a = _editingProgram.exercises;
+      if(idx >= a.length-1) return;
+      [a[idx+1], a[idx]] = [a[idx], a[idx+1]];
       _renderTpEditorExercises();
     });
   });
@@ -4067,7 +4095,7 @@ window._copyProgramToLog = function(programId){
   _openTlEditor();
 };
 
-function _tlExerciseRow(ex, idx){
+function _tlExerciseRow(ex, idx, totalCount){
   const videoId = _ytId(ex.video||'');
   // Determine number of sets — from sets field or weights array
   const setsNum = parseInt(ex.sets) || (Array.isArray(ex.weights) ? ex.weights.length : 1) || 1;
@@ -4089,6 +4117,13 @@ function _tlExerciseRow(ex, idx){
 
   return `<div class="tl-ex-row" data-idx="${idx}" style="background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:8px">
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:4px;align-self:stretch;padding-right:6px;border-right:1px solid var(--ice2)">
+        <div style="display:flex;flex-direction:column;gap:3px">
+          <button type="button" class="btn-reorder tl-ex-up" ${idx===0?'disabled':''} title="Nach oben" aria-label="Nach oben">▲</button>
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:.78rem;color:var(--muted);text-align:center;min-width:24px">${idx+1}</span>
+          <button type="button" class="btn-reorder tl-ex-down" ${idx===totalCount-1?'disabled':''} title="Nach unten" aria-label="Nach unten">▼</button>
+        </div>
+      </div>
       <div class="fg" style="flex:2;min-width:140px">
         <label>Übung</label>
         <input type="text" class="tl-ex-name" value="${(ex.name||'').replace(/"/g,'&quot;')}" placeholder="z.B. Bankdrücken"/>
@@ -4121,7 +4156,8 @@ function _tlExerciseRow(ex, idx){
 function _renderTlExercises(){
   const container = document.getElementById('tlExercises');
   if(!container || !_editingLogEntry) return;
-  container.innerHTML = (_editingLogEntry.exercises||[]).map((ex,i)=>_tlExerciseRow(ex,i)).join('');
+  const exs = _editingLogEntry.exercises||[];
+  container.innerHTML = exs.map((ex,i)=>_tlExerciseRow(ex,i,exs.length)).join('');
   container.querySelectorAll('.tl-ex-row').forEach(row=>{
     const idx = parseInt(row.dataset.idx);
     const ex = _editingLogEntry.exercises[idx];
@@ -4129,7 +4165,6 @@ function _renderTlExercises(){
     row.querySelector('.tl-ex-sets').addEventListener('change',e=>{
       const n = Math.max(1, Math.min(20, parseInt(e.target.value)||1));
       ex.sets = n;
-      // Resize weights to match
       while(ex.weights.length < n) ex.weights.push('');
       while(ex.weights.length > n) ex.weights.pop();
       _renderTlExercises();
@@ -4144,6 +4179,18 @@ function _renderTlExercises(){
     row.querySelector('.tl-ex-notes').addEventListener('input',e=>{ex.notes=e.target.value;});
     row.querySelector('.tl-ex-remove').addEventListener('click',()=>{
       _editingLogEntry.exercises.splice(idx,1);
+      _renderTlExercises();
+    });
+    row.querySelector('.tl-ex-up')?.addEventListener('click',()=>{
+      if(idx <= 0) return;
+      const a = _editingLogEntry.exercises;
+      [a[idx-1], a[idx]] = [a[idx], a[idx-1]];
+      _renderTlExercises();
+    });
+    row.querySelector('.tl-ex-down')?.addEventListener('click',()=>{
+      const a = _editingLogEntry.exercises;
+      if(idx >= a.length-1) return;
+      [a[idx+1], a[idx]] = [a[idx], a[idx+1]];
       _renderTlExercises();
     });
   });
@@ -4289,6 +4336,7 @@ let _calCurrentMonth = null; // {y, m} where m is 0-indexed
 
 function _catColor(cat){
   const map = {
+    'Trainingsplan':'#0c1f3d',
     'Kraft':'#e8621a',
     'Schnelligkeit':'#1a7a3e',
     'Explosivität':'#9a1515',
